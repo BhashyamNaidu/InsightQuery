@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.db.session import SessionLocal
@@ -185,18 +185,21 @@ def _fk_orphan_check(session, community_valid: set[int], district_valid: set[str
     """Data-quality gate: fail loudly if a meaningful fraction of rows reference a
     community area / district code that isn't in our (cleaned) dimension tables,
     rather than silently shipping a schema where joins quietly drop rows."""
+    # NOT IN :valid needs an *expanding* bindparam — a plain named bindparam sends
+    # the tuple to the DBAPI as a single opaque parameter (`NOT IN ?`), which either
+    # errors or silently matches nothing, rather than expanding to `NOT IN (?, ?, ?)`.
     total = session.execute(text("SELECT COUNT(*) FROM crimes")).scalar_one()
     orphan_community = session.execute(
         text(
             "SELECT COUNT(*) FROM crimes WHERE community_area_code IS NOT NULL "
             "AND community_area_code NOT IN :valid"
-        ).bindparams(valid=tuple(community_valid) or (-1,))
+        ).bindparams(bindparam("valid", value=tuple(community_valid) or (-1,), expanding=True))
     ).scalar_one()
     orphan_district = session.execute(
         text(
             "SELECT COUNT(*) FROM crimes WHERE district_code IS NOT NULL "
             "AND district_code NOT IN :valid"
-        ).bindparams(valid=tuple(district_valid) or ("__none__",))
+        ).bindparams(bindparam("valid", value=tuple(district_valid) or ("__none__",), expanding=True))
     ).scalar_one()
     logger.info(
         "Data-quality check: %d/%d rows with orphan community_area_code, "
