@@ -36,10 +36,15 @@ class Crime(Base):
         Index("ix_crimes_district_code", "district_code"),
         Index("ix_crimes_community_area_code", "community_area_code"),
         Index("ix_crimes_arrest", "arrest"),
+        Index("ix_crimes_case_number", "case_number"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
-    case_number: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    # NOT unique: a single police case_number can span multiple crime records (e.g.
+    # a multi-victim incident produces one row per victim, same case_number). This
+    # was discovered ingesting the real dataset: 20 of 263,841 rows in the 2023 data
+    # share a case_number with another row. `id` is the true unique row identifier.
+    case_number: Mapped[str] = mapped_column(String(20), nullable=False)
     occurred_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False)
     block: Mapped[str] = mapped_column(String(100), nullable=True)
     iucr_code: Mapped[str] = mapped_column(String(10), ForeignKey("iucr_codes.code"), nullable=True)

@@ -103,8 +103,21 @@ def clean_police_districts(raw: list[dict]) -> list[dict]:
     return list(seen.values())
 
 
-def clean_crimes(raw: list[dict], valid_iucr: set[str]) -> tuple[list[dict], dict[str, int]]:
-    stats = {"total": len(raw), "dropped_no_id": 0, "dropped_no_date": 0, "dropped_dup": 0, "clean": 0}
+def clean_crimes(
+    raw: list[dict],
+    valid_iucr: set[str],
+    valid_district: set[str],
+    valid_community: set[int],
+) -> tuple[list[dict], dict[str, int]]:
+    stats = {
+        "total": len(raw),
+        "dropped_no_id": 0,
+        "dropped_no_date": 0,
+        "dropped_dup": 0,
+        "nulled_bad_district": 0,
+        "nulled_bad_community_area": 0,
+        "clean": 0,
+    }
     seen_ids: set[int] = set()
     clean_rows: list[dict] = []
 
@@ -130,6 +143,21 @@ def clean_crimes(raw: list[dict], valid_iucr: set[str]) -> tuple[list[dict], dic
         if iucr_code not in valid_iucr:
             iucr_code = None  # keep the crime row; just don't dangle an FK to a bad code
 
+        # Discovered on real data: a small fraction of rows (~0.15%) reference a
+        # district code (e.g. "031", "061") that isn't a real CPD patrol district in
+        # the reference lookup, or a community_area code with no matching row. Same
+        # treatment as iucr_code above — null the FK rather than dropping the row or
+        # crashing the whole ingestion on a foreign key violation.
+        district_code = (row.get("district") or "").strip().zfill(3) or None
+        if district_code not in valid_district:
+            stats["nulled_bad_district"] += 1
+            district_code = None
+
+        community_area_code = _to_int(row.get("community_area")) or None
+        if community_area_code not in valid_community:
+            stats["nulled_bad_community_area"] += 1
+            community_area_code = None
+
         seen_ids.add(record_id)
         clean_rows.append(
             {
@@ -144,11 +172,9 @@ def clean_crimes(raw: list[dict], valid_iucr: set[str]) -> tuple[list[dict], dic
                 "arrest": _to_bool(row.get("arrest")),
                 "domestic": _to_bool(row.get("domestic")),
                 "beat": row.get("beat"),
-                "district_code": (row.get("district") or "").strip().zfill(3) or None
-                if row.get("district")
-                else None,
+                "district_code": district_code,
                 "ward": _to_int(row.get("ward")),
-                "community_area_code": _to_int(row.get("community_area")) or None,
+                "community_area_code": community_area_code,
                 "fbi_code": row.get("fbi_code"),
                 "latitude": _to_float(row.get("latitude")),
                 "longitude": _to_float(row.get("longitude")),
@@ -171,14 +197,26 @@ def _upsert_dimension(session, model, rows: list[dict], pk_col: str) -> None:
 def _insert_crimes(session, rows: list[dict]) -> int:
     if not rows:
         return 0
-    inserted = 0
-    chunk_size = 5000
+    # cursor.rowcount is unreliable for a multi-row INSERT ... ON CONFLICT DO NOTHING
+    # via psycopg (it reports -1, meaning "unknown," for this statement shape) — and
+    # `result.rowcount or 0` doesn't catch that, because -1 is truthy in Python, so it
+    # was silently summing -1 per chunk into a nonsensical negative total. Counting
+    # actual rows before/after is the only accurate way to report how many were added.
+    before = session.execute(text("SELECT COUNT(*) FROM crimes")).scalar_one()
+
+    # Postgres (via psycopg) caps a single query at 65535 bound parameters. Each
+    # crime row binds 18 columns, so 5000 rows/chunk (90000 params) overflowed that
+    # limit and failed at execution time on the very first real ingestion run.
+    # 1000 rows * 18 cols = 18000 params, comfortably under the limit.
+    chunk_size = 1000
     for i in range(0, len(rows), chunk_size):
         chunk = rows[i : i + chunk_size]
         stmt = pg_insert(Crime).values(chunk).on_conflict_do_nothing(index_elements=["id"])
-        result = session.execute(stmt)
-        inserted += result.rowcount or 0
-    return inserted
+        session.execute(stmt)
+
+    session.flush()
+    after = session.execute(text("SELECT COUNT(*) FROM crimes")).scalar_one()
+    return after - before
 
 
 def _fk_orphan_check(session, community_valid: set[int], district_valid: set[str]) -> None:
@@ -225,7 +263,11 @@ def main() -> None:
     district_rows = clean_police_districts(_load_raw("police_districts.json"))
 
     valid_iucr = {r["code"] for r in iucr_rows}
-    crime_rows, crime_stats = clean_crimes(_load_raw("crimes_2023.json"), valid_iucr)
+    valid_district = {r["code"] for r in district_rows}
+    valid_community = {r["code"] for r in community_rows}
+    crime_rows, crime_stats = clean_crimes(
+        _load_raw("crimes_2023.json"), valid_iucr, valid_district, valid_community
+    )
     logger.info("crimes cleaning stats: %s", crime_stats)
 
     if crime_stats["clean"] / max(crime_stats["total"], 1) < 0.95:

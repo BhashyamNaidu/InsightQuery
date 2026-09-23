@@ -8,7 +8,15 @@ services:
       POSTGRES_USER: insightquery
       POSTGRES_PASSWORD: insightquery
     ports:
-      - "5432:5432"
+      # Host port 5433, not 5432: this machine already runs a native PostgreSQL
+      # service on 5432 (unrelated to this project) — mapping to 5432 here caused
+      # host connections to silently resolve to the native service instead of this
+      # container (both ended up listening on 5432; the native one won), producing
+      # a confusing "password authentication failed" for a role that only exists in
+      # the container. 5433 avoids the ambiguity entirely. Container-to-container
+      # traffic (the api service below) is unaffected — it uses the container's
+      # internal 5432 regardless of this host mapping.
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./scripts/init_db_roles.sql:/docker-entrypoint-initdb.d/10_init_roles.sql:ro
