@@ -1,0 +1,26 @@
+# Without this file, `context: .` in docker-compose.yml sends the ENTIRE project
+# directory to the Docker daemon on every build — including .venv/ (1GB+ once
+# sentence-transformers/torch are installed locally), .git/ history, and the raw
+# data cache (data/raw/crimes_2023.json alone is ~180MB) — none of which the image
+# needs, since only app/ and requirements.txt are ever COPYed in (see docker/Dockerfile).
+
+.venv/
+venv/
+.git/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+
+data/raw/
+data/processed/
+
+.env
+.env.*
+!.env.example
+
+docs/
+*.md
+.vscode/
+.idea/
