@@ -16,8 +16,14 @@ $$;
 GRANT CONNECT ON DATABASE insightquery TO insightquery_readonly;
 GRANT USAGE ON SCHEMA public TO insightquery_readonly;
 
--- Table-level SELECT grants are (re-)applied by scripts/grant_readonly.sql
--- after migrations create the tables (grants on not-yet-existing tables are no-ops).
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO insightquery_readonly;
-
+-- Deliberately NO `ALTER DEFAULT PRIVILEGES ... GRANT SELECT ON TABLES` here.
+-- That was tried and reverted after live testing showed it does exactly what it
+-- says: grants SELECT on every current *and future* table in the schema, which
+-- silently included query_log (containing every generated SQL string this system
+-- has ever logged, across all users' questions), documents, and document_chunks —
+-- none of which validate_sql()'s table allow-list ever intended this role to read.
+-- Table-level SELECT grants are applied explicitly, by name, in
+-- scripts/grant_readonly.sql — run once after migrations create the tables — so the
+-- DB-level grant boundary matches the four-table allow-list exactly, not "whatever
+-- happens to exist in the schema."
 REVOKE CREATE ON SCHEMA public FROM insightquery_readonly;
