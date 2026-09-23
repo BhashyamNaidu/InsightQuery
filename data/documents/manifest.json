@@ -1,0 +1,17 @@
+[
+  {"file": "01_iucr_classification.md", "title": "IUCR Crime Classification Methodology", "category": "classification"},
+  {"file": "02_fbi_ucr_classification.md", "title": "FBI UCR Classification: Part I vs. Part II Offenses", "category": "classification"},
+  {"file": "03_cpd_district_structure.md", "title": "Chicago Police Department District Structure", "category": "geography"},
+  {"file": "04_data_quality_limitations.md", "title": "Known Data Quality Limitations of the Chicago Crime Dataset", "category": "data_quality"},
+  {"file": "05_arrest_domestic_flags.md", "title": "Definitions: Arrest and Domestic Flags", "category": "definitions"},
+  {"file": "06_caps_community_policing.md", "title": "CAPS: Chicago Alternative Policing Strategy", "category": "policy"},
+  {"file": "07_crime_prevention_guidance.md", "title": "General Crime Prevention Guidance for Residents", "category": "guidance"},
+  {"file": "08_seasonal_crime_patterns.md", "title": "Seasonal and Temporal Crime Patterns: General Context", "category": "context"},
+  {"file": "09_index_vs_nonindex_crimes.md", "title": "Index Crimes vs. Non-Index Crimes", "category": "classification"},
+  {"file": "10_geocoding_privacy_practices.md", "title": "Location Privacy: Why Addresses Are Block-Level", "category": "data_quality"},
+  {"file": "11_year_over_year_caveats.md", "title": "Methodological Pitfalls in Year-Over-Year Crime Comparisons", "category": "methodology"},
+  {"file": "12_theft_category_overview.md", "title": "Theft Categories and Subtypes", "category": "classification"},
+  {"file": "13_data_refresh_cadence.md", "title": "Data Refresh Cadence and Extraction Timing", "category": "data_quality"},
+  {"file": "14_domestic_violence_resources.md", "title": "Domestic Violence: Definitions and Resources", "category": "guidance"},
+  {"file": "15_glossary.md", "title": "Glossary of Terms", "category": "reference"}
+]
