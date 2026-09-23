@@ -105,7 +105,20 @@ def run_investigation(question: str) -> InvestigateResponse:
 
 
 def _run_sql_stage(question: str) -> tuple[SqlExecutionResult, tuple[str | None, int, int]]:
-    gen = generate_sql(question)
+    try:
+        gen = generate_sql(question)
+    except LlmError as exc:
+        # Same reasoning as classify_intent's LlmError handling: degrade to a
+        # rejected result rather than letting this propagate out of
+        # run_investigation and skip query_log entirely for the request.
+        logger.warning("SQL generation LLM call failed: %s", exc)
+        return (
+            SqlExecutionResult(
+                validation_ok=False,
+                rejection_reason=f"SQL generation LLM call failed: {exc}",
+            ),
+            (None, 0, 0),
+        )
     tokens = (gen.llm_model, gen.input_tokens, gen.output_tokens)
 
     if not gen.validation.ok:
@@ -146,8 +159,15 @@ def _run_sql_stage(question: str) -> tuple[SqlExecutionResult, tuple[str | None,
 
 
 def _run_rag_stage(question: str) -> list[EvidenceChunk]:
-    with SessionLocal() as session:
-        retrieved = retrieve(session, question)
+    try:
+        with SessionLocal() as session:
+            retrieved = retrieve(session, question)
+    except Exception:  # noqa: BLE001 - same reasoning as the SQL stage: a retrieval
+        # failure (DB down, embedding model unavailable) must degrade to "no
+        # evidence found" rather than propagate out of run_investigation and skip
+        # query_log for the request.
+        logger.exception("RAG retrieval failed")
+        return []
     return [
         EvidenceChunk(
             document_title=r.document_title,

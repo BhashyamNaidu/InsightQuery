@@ -6,10 +6,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
+import anthropic
 from anthropic import Anthropic
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.core.config import get_settings
+
+# Errors worth retrying: transient/server-side (rate limit, connection blip, 5xx).
+# Deliberately excludes AuthenticationError, PermissionDeniedError, NotFoundError,
+# and BadRequestError — a missing/invalid API key or a malformed request will fail
+# identically on every attempt, so retrying them only adds latency (found via live
+# testing: retrying a bad-auth failure 3x with exponential backoff turned an
+# instant, permanent failure into a ~40 second one before the caller ever saw it).
+_RETRYABLE_ERRORS = (
+    anthropic.RateLimitError,
+    anthropic.APIConnectionError,
+    anthropic.APITimeoutError,
+    anthropic.InternalServerError,
+)
 
 
 @dataclass
@@ -33,7 +47,7 @@ class LlmError(RuntimeError):
     reraise=True,
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=8),
-    retry=retry_if_exception_type(Exception),
+    retry=retry_if_exception_type(_RETRYABLE_ERRORS),
 )
 def _call_anthropic(system: str, user: str, max_tokens: int) -> LlmResponse:
     settings = get_settings()

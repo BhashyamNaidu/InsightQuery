@@ -170,3 +170,103 @@ def test_synthesis_llm_failure_does_not_crash_pipeline(monkeypatch):
 
     assert response.synthesis is None
     assert response.route == Route.RAG
+
+
+def test_sql_generation_llm_failure_degrades_to_rejected_result(monkeypatch):
+    """Regression test: generate_sql() raising LlmError inside _run_sql_stage used
+    to propagate out of run_investigation entirely, skipping _persist_log for the
+    request. Must degrade to a rejected SqlExecutionResult instead."""
+    _patch_persist(monkeypatch)
+    monkeypatch.setattr(
+        investigation,
+        "classify_intent",
+        lambda q: IntentResult(route=Route.SQL, reasoning="Needs a count."),
+    )
+
+    from app.llm.client import LlmError
+
+    def boom(question: str):
+        raise LlmError("provider unreachable")
+
+    monkeypatch.setattr(investigation, "generate_sql", boom)
+    monkeypatch.setattr(
+        investigation,
+        "synthesize",
+        lambda **kwargs: SynthesisOutput(
+            answer="No data available.", citations=[], confidence=Confidence.LOW, limitations=[]
+        ),
+    )
+
+    response = investigation.run_investigation("How many thefts happened?")
+
+    assert response.route == Route.SQL
+    assert response.sql_result is not None
+    assert response.sql_result.validation_ok is False
+    assert "LLM call failed" in response.sql_result.rejection_reason
+
+
+def test_rag_retrieval_failure_degrades_to_empty_evidence(monkeypatch):
+    """Regression test: retrieve() raising (e.g. DB or embedding model down)
+    inside _run_rag_stage used to propagate out of run_investigation entirely,
+    skipping _persist_log for the request. Must degrade to empty evidence."""
+    _patch_persist(monkeypatch)
+    monkeypatch.setattr(
+        investigation,
+        "classify_intent",
+        lambda q: IntentResult(route=Route.RAG, reasoning="Definitional question."),
+    )
+
+    def boom(session, question):
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(investigation, "retrieve", boom)
+    monkeypatch.setattr(
+        investigation,
+        "synthesize",
+        lambda **kwargs: SynthesisOutput(
+            answer="No evidence available.", citations=[], confidence=Confidence.LOW, limitations=[]
+        ),
+    )
+
+    response = investigation.run_investigation("What is an IUCR code?")
+
+    assert response.route == Route.RAG
+    assert response.evidence == []
+
+
+def test_full_llm_outage_still_persists_query_log(monkeypatch):
+    """The end-to-end resilience claim: even if EVERY LLM-dependent stage fails
+    (simulating a total Anthropic API outage — intent classification already
+    degrades to hybrid per test_intent_resilience.py, and both remaining stages
+    are exercised here), run_investigation must still complete and call
+    _persist_log, rather than raising and losing the audit trail for the request."""
+    logged = {}
+
+    class _RecordingSession(_FakeSession):
+        def add(self, obj):
+            logged["query_log_entry"] = obj
+
+    monkeypatch.setattr(investigation, "SessionLocal", lambda: _RecordingSession())
+
+    from app.llm.client import LlmError
+
+    def boom(*args, **kwargs):
+        raise LlmError("total outage")
+
+    monkeypatch.setattr(
+        investigation,
+        "classify_intent",
+        lambda q: IntentResult(route=Route.HYBRID, reasoning="LLM call failed; defaulting to hybrid."),
+    )
+    monkeypatch.setattr(investigation, "generate_sql", boom)
+    monkeypatch.setattr(investigation, "retrieve", lambda session, question: (_ for _ in ()).throw(RuntimeError("down")))
+    monkeypatch.setattr(investigation, "synthesize", boom)
+
+    response = investigation.run_investigation("How many thefts happened this year?")
+
+    assert response is not None
+    assert response.sql_result.validation_ok is False
+    assert response.evidence == []
+    assert response.synthesis is None
+    assert "query_log_entry" in logged
+    assert logged["query_log_entry"].route == Route.HYBRID.value
