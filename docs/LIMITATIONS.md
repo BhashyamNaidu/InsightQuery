@@ -9,9 +9,10 @@ and consciously deferred, not discovered after the fact.
 1. **NL-to-SQL column allow-list is table-agnostic**, not fully schema-qualified (see
    `docs/SQL_SAFETY.md`). Low risk today because none of the four allowed tables has a
    sensitive column, but it's a real simplification, not an oversight to gloss over.
-2. **RAG evaluation set is small (15 questions, one per document).** Enough to catch a
-   broken pipeline, not enough for a statistically confident recall estimate. See
-   `docs/RAG_EVALUATION.md` for the full discussion.
+2. **RAG evaluation set is small (15 questions, one per document).** Measured
+   recall@5 = 1.0, MRR = 0.956 against the live system (see `docs/RAG_EVALUATION.md`) —
+   a genuinely good result, but on a set small enough that it's evidence the pipeline
+   works correctly, not a statistically confident general recall estimate.
 3. **Single calendar year of data (2023).** Chosen deliberately for a fast, reviewable
    ingestion within scope — but it means true multi-year trend analysis isn't possible,
    and "this year vs. last year" questions can't be answered from this dataset as loaded.
@@ -30,6 +31,15 @@ and consciously deferred, not discovered after the fact.
    attempting more sophisticated repair (e.g. asking the model to fix its own JSON). This
    is a deliberate simplicity choice — a rare failure mode surfaced honestly beats an
    overengineered self-repair loop for a system this size.
+9. **First RAG retrieval in a fresh process pays a one-time embedding-model load cost**
+   (~30-45 seconds observed, loading `sentence-transformers/all-MiniLM-L6-v2` into
+   memory) — noticeable on the very first `/investigate` or `/rag/retrieve` call after
+   the API process starts, negligible on every call after. Not addressed with a
+   startup-time warmup call, which would be the straightforward fix.
+10. **This machine's local dev setup needed a non-default Postgres port (5433, not 5432)**
+    because a native PostgreSQL install already occupied 5432 — documented in
+    `docker-compose.yml` and `.env.example`, not a system limitation, but worth knowing
+    if `docker compose up` is ever run on a fresh machine that also has a local Postgres.
 
 ## Explicitly out of scope (see `ARCHITECTURE.md` §12 for the full list and rationale)
 

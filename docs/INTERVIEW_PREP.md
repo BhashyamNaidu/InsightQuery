@@ -75,3 +75,42 @@ the evidence -> a schema-validated JSON answer with citations, or an honest
 Answer straight from `docs/LIMITATIONS.md` #1 and #2 (the column-allow-list simplification
 and the small RAG evaluation set). Naming your own weak points precisely, with the reason
 they were accepted rather than fixed, reads as more senior than claiming there aren't any.
+
+## "Tell me about a real bug you found and fixed."
+
+This project's git history has several genuine ones, found only once it ran against a
+real Docker deployment rather than mocked tests — good material because each has a clear
+root cause and a specific fix, not a vague "I debugged some issues."
+
+- **A database access boundary gap.** The read-only Postgres role that executes generated
+  SQL was supposed to have `SELECT` on exactly four tables. Direct-connection testing
+  (`psql` as that role, bypassing the app entirely) found it could also read `query_log` —
+  which contains every question and generated SQL string this system has ever logged.
+  Root cause: `ALTER DEFAULT PRIVILEGES ... GRANT SELECT ON TABLES` grants on *every*
+  current and future table, not a scoped subset — a one-line mistake with a real
+  confidentiality consequence. Fixed by removing it in favor of explicit, named grants,
+  and re-verified against a *from-scratch* container rebuild, not just a patch to the
+  already-running one (see `docs/SQL_SAFETY.md`).
+- **A safety-critical function that could crash instead of reject.** `validate_sql()` is
+  documented as this system's single safety boundary — it must always return a decision,
+  never raise. Adversarial input testing found it did raise, on plain non-string input,
+  because `(x or "").strip()` doesn't guard against a truthy non-string like the int `123`.
+  The fix is one `isinstance` check; the lesson is that "the function that must never
+  fail" needs its own explicit input-validation test, not just tests of its happy path.
+- **A silent auditability gap during an LLM outage.** With no Anthropic API key configured
+  (a real outage, encountered while testing, not a simulated one), the whole
+  `/investigate` pipeline raised before a `query_log` row was ever written — meaning the
+  exact moment auditability matters most (something went wrong) is when this system
+  produced no audit trail at all. Fixed by making every LLM-dependent stage degrade to an
+  explicit, logged failure state instead of raising — the same pattern the synthesis stage
+  already used, just not consistently applied to the earlier stages yet.
+- **A quieter one: retrying a permanent failure.** The same outage testing showed a failed
+  request taking ~40 seconds to fail, because the retry decorator retried a missing-API-key
+  error (which fails identically every time) exactly like a transient rate limit. Narrowing
+  retries to actually-transient error types cut that to under a second — a reminder that
+  "add retries" isn't automatically a resilience improvement without also asking *which*
+  failures are worth retrying.
+
+The throughline across all four: none were found by reasoning about the code in the
+abstract — all four needed the system actually running against real infrastructure
+(a live database, a live/absent API key) before they were even visible.

@@ -20,11 +20,16 @@ sources, and to say "insufficient evidence" when that's the honest answer.
 
 ## Setup
 
-**Prerequisites:** Docker Desktop, Python 3.11+, an [Anthropic API key](https://console.anthropic.com/).
+**Prerequisites:** Docker Desktop (with WSL2 backend on Windows), Python 3.11+, an
+[Anthropic API key](https://console.anthropic.com/). Every command below has actually
+been run end-to-end against a real Docker deployment — see "Verified" below.
 
 ```bash
 # 1. Clone and configure
 cp .env.example .env          # then fill in ANTHROPIC_API_KEY
+# Note: the db container maps to host port 5433, not 5432, in case this machine already
+# runs a native Postgres on 5432 (see the comment in docker-compose.yml) — .env.example
+# already points at 5433, no change needed unless you edit the port mapping yourself.
 
 # 2. Start Postgres + pgvector
 docker compose up -d db
@@ -34,22 +39,37 @@ python -m venv .venv
 source .venv/Scripts/activate  # Windows Git Bash; use .venv\Scripts\Activate.ps1 for PowerShell
 pip install -r requirements.txt
 
-# 4. Create schema
+# 4. Create schema and apply the least-privilege read-only role's grants
 alembic upgrade head
-psql "$DATABASE_URL" -f scripts/grant_readonly.sql   # after tables exist
+docker exec -i insightquery-db psql -U insightquery -d insightquery < scripts/grant_readonly.sql
 
-# 5. Load data (one-time; pulls live from the Chicago open data portal)
-python scripts/fetch_data.py
-python scripts/ingest_data.py
-python scripts/ingest_documents.py
+# 5. Load data (one-time; pulls live from the Chicago open data portal).
+# PYTHONPATH=. is required so these scripts can import the `app` package.
+PYTHONPATH=. python scripts/fetch_data.py
+PYTHONPATH=. python scripts/ingest_data.py
+PYTHONPATH=. python scripts/ingest_documents.py
 
 # 6. Run the API
-uvicorn app.main:app --reload --port 8000
+PYTHONPATH=. uvicorn app.main:app --reload --port 8000
 # docs at http://localhost:8000/docs
 ```
 
 Or build/run the API in Docker too: `docker compose up -d` (after steps 4-5, which need
 to run once against the containerized DB — see `docker-compose.yml`).
+
+### Verified
+
+This exact sequence was run against a real Docker Desktop (WSL2 backend) deployment on
+2026-09-23: 263,841 real 2023 Chicago crime records loaded, 15 reference documents
+chunked/embedded/loaded, `/health` returns healthy, `/rag/retrieve` returns correct
+results, and the `insightquery_readonly` role was confirmed to `SELECT` successfully on
+the four analytics tables while being denied `INSERT`/`DROP`/`DELETE` and denied `SELECT`
+on `query_log`/`documents`/`document_chunks`. Adversarial SQL injection testing (14 attack
+patterns — stacked statements, comment smuggling, schema enumeration, function abuse,
+`COPY ... TO PROGRAM`, UNION-based credential exfiltration) was blocked entirely by the
+existing validator. See [docs/SQL_SAFETY.md](docs/SQL_SAFETY.md) and
+[docs/SECURITY.md](docs/SECURITY.md) for full results, including two real bugs this
+testing found and fixed.
 
 ### Running tests
 
@@ -57,10 +77,10 @@ to run once against the containerized DB — see `docker-compose.yml`).
 pytest -q
 ```
 
-56+ tests cover the SQL-safety adversarial matrix, chunking, the API contract, and
-analytics-query syntax — all runnable without a live database or API key. Full
-integration coverage (real ingestion, real retrieval) needs the database from the setup
-steps above.
+80+ tests cover the SQL-safety adversarial matrix, chunking, the API contract, LLM-outage
+resilience, and analytics-query syntax — all runnable without a live database or API key.
+Full integration coverage (real ingestion, real retrieval) needs the database from the
+setup steps above.
 
 ### Evaluating RAG retrieval quality
 

@@ -88,7 +88,7 @@ sensitive or privileged column; a cross-table column mix-up produces a Postgres 
 worst, not a security exposure. If a future version of this schema added a table with
 sensitive columns, this would need to be revisited before adding it to the allow-list.
 
-## Adversarial test matrix (`tests/test_sql_validator.py`, 35 tests)
+## Adversarial test matrix (`tests/test_sql_validator.py`, 41 tests)
 
 | Category | Examples tested |
 |---|---|
@@ -102,3 +102,43 @@ sensitive columns, this would need to be revisited before adding it to the allow
 
 Every rejection returns a specific, logged reason string — never a silent no-op and never
 a generic "invalid query," because both the caller and the audit log need to know *why*.
+
+## Verified live against a real database (2026-09-23)
+
+Beyond the unit-test matrix above, the safety model was exercised against the actual
+running Docker Postgres/pgvector container, at both layers:
+
+**Validator layer** — 14 adversarial SQL strings (stacked `DROP`, direct `DROP`/`DELETE`/
+`UPDATE`, comment-hidden `TRUNCATE`, `information_schema`/`pg_catalog` enumeration,
+`pg_sleep` DoS, unbounded `LIMIT`, access attempts against `query_log`/`documents`,
+`current_setting` introspection, `COPY ... TO PROGRAM` exfiltration, and a UNION-based
+`pg_shadow` credential-exfiltration attempt) were all correctly blocked by
+`validate_sql()`, each with a specific, accurate rejection reason.
+
+**Database layer** — connected directly as `insightquery_readonly` (bypassing the
+validator entirely, simulating "the validator has a bug/is bypassed") and confirmed the
+role cannot `DROP`, `DELETE`, `TRUNCATE`, or `CREATE TABLE` (all correctly return
+`permission denied`), proving the backstop actually backstops.
+
+**A real gap this testing found and fixed**: the same direct-connection check revealed
+that `insightquery_readonly` could `SELECT` from `query_log`, `documents`,
+`document_chunks`, and `alembic_version` — not just the four intended analytics tables.
+Root cause: `scripts/init_db_roles.sql` used `ALTER DEFAULT PRIVILEGES ... GRANT SELECT ON
+TABLES`, which grants SELECT on *every* current and future table in the schema, not a
+scoped subset. This didn't allow any write, but it meant the DB-level grant boundary —
+meant to be the backstop if the validator were ever bypassed — was actually "everything in
+the schema," not "the four analytics tables," which is a real violation of the model
+described above. Fixed by removing that blanket grant in favor of the explicit, named
+per-table grants in `scripts/grant_readonly.sql`; verified against a from-scratch
+container rebuild (not just a patch to the already-running one) that a fresh
+init+migrate+grant sequence now denies the readonly role on those four tables while still
+allowing the intended ones. See the commit fixing this for full detail.
+
+**A second real bug this testing found**: `validate_sql()` crashed with an unhandled
+`AttributeError` on non-string input (`(raw_sql or "").strip()` — `123 or ""` evaluates to
+the truthy int `123`, which has no `.strip()`), rather than returning a `ValidationResult`
+like every other rejection path. Since this function is documented as the system's single
+safety boundary, it must never raise regardless of input; fixed with an explicit
+`isinstance` check, plus regression tests for non-string types and several malformed-SQL
+shapes (truncated statements, unbalanced parens, typo'd keywords) that were only ever
+implicitly covered before.

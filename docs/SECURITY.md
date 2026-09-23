@@ -65,6 +65,35 @@ addresses, not exact addresses; see the RAG document on geocoding privacy). Insi
 does not re-identify, re-aggregate to finer geography, or cross-reference this data
 against any other source that could increase its identifiability.
 
+## Live adversarial testing results (2026-09-23)
+
+Once a real Docker deployment was available, the threats above were tested against the
+actual running system rather than only reasoned about. Two real findings resulted, both
+fixed the same day (see `docs/SQL_SAFETY.md` for full detail on both):
+
+- **DB access boundary gap (threat #1's backstop layer):** `insightquery_readonly` could
+  `SELECT` from `query_log`, `documents`, and `document_chunks` — not just the four
+  intended tables — because `scripts/init_db_roles.sql` granted default privileges on all
+  tables rather than the intended four. No write access was ever possible, but the DB-level
+  boundary didn't match its documented scope. Fixed and re-verified against a from-scratch
+  container rebuild, not just the already-running one.
+- **Validator crash on malformed input:** `validate_sql()` raised an unhandled
+  `AttributeError` on non-string input instead of returning a rejection, found via
+  adversarial input testing (empty string, whitespace, garbage text, wrong types, truncated
+  SQL, unbalanced parens). Fixed with an explicit type check; the function that is meant to
+  be the system's one safety boundary must never itself raise.
+
+The 14-attack SQL-injection battery (stacked statements, comment smuggling, schema
+enumeration, `pg_sleep` DoS, function abuse, `COPY ... TO PROGRAM` exfiltration, and a
+UNION-based `pg_shadow` credential-exfiltration attempt) was blocked entirely by the
+existing validator with no changes needed — see `docs/SQL_SAFETY.md` for the full list.
+
+Threat #2 (prompt injection) and the intent classifier's "reject off-topic/malicious
+input" behavior require a live Anthropic API call to test for real (mocking would only
+test this codebase's plumbing, not actual model behavior under an adversarial prompt).
+That testing is tracked separately — see the git commit history for whether/when it ran
+and what it found, rather than assuming a result from this paragraph alone.
+
 ## Explicitly out of scope for this project
 
 - Authentication/authorization (no RBAC, no user accounts) — see `ARCHITECTURE.md` §12.

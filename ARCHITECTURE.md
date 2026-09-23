@@ -41,7 +41,7 @@ across hundreds of thousands of rows and benefit from normalization + referentia
 ```
 crimes (fact)
 ├── id                 BIGINT PK   (source record id, stable)
-├── case_number        TEXT UNIQUE
+├── case_number        TEXT INDEXED (not unique — see note below)
 ├── occurred_at         TIMESTAMP  -- indexed, drives all time-based analysis
 ├── block               TEXT
 ├── iucr_code           TEXT FK -> iucr_codes.code
@@ -104,6 +104,12 @@ query_log
 ├── llm_output_tokens  INTEGER NULL
 └── created_at         TIMESTAMP
 ```
+
+`case_number` is not unique, discovered ingesting the real 2023 dataset: 20 of 263,841
+rows share a case_number with another row (a multi-victim incident produces one row per
+victim under the same police case). `id` is the true unique row identifier — the schema
+originally had a `UNIQUE` constraint on `case_number`, corrected in migration `0002` once
+real data disproved that assumption.
 
 Indexes: `crimes(occurred_at)`, `crimes(primary_type)`, `crimes(district_code)`,
 `crimes(community_area_code)`, `crimes(arrest)`, composite `(primary_type, occurred_at)` for
