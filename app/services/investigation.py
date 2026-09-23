@@ -19,10 +19,12 @@ from app.nlsql.executor import execute_readonly
 from app.nlsql.generator import generate_sql
 from app.rag.retrieval import retrieve
 from app.schemas.investigation import (
+    Confidence,
     EvidenceChunk,
     InvestigateResponse,
     Route,
     SqlExecutionResult,
+    SynthesisOutput,
 )
 from app.services.intent import classify_intent
 
@@ -38,29 +40,44 @@ def run_investigation(question: str) -> InvestigateResponse:
 
     sql_result: SqlExecutionResult | None = None
     evidence: list[EvidenceChunk] = []
+    synthesis: SynthesisOutput | None = None
     llm_model: str | None = None
     llm_input_tokens = 0
     llm_output_tokens = 0
 
-    if route in (Route.SQL, Route.HYBRID):
-        sql_result, tokens = _run_sql_stage(question)
-        llm_model = tokens[0] or llm_model
-        llm_input_tokens += tokens[1]
-        llm_output_tokens += tokens[2]
-
-    if route in (Route.RAG, Route.HYBRID):
-        evidence = _run_rag_stage(question)
-
-    synthesis = None
-    try:
-        synthesis = synthesize(
-            question=question,
-            sql=sql_result.executed_sql if sql_result else None,
-            sql_rows=sql_result.rows if sql_result else None,
-            evidence_chunks=[e.model_dump() for e in evidence],
+    if route == Route.REJECTED:
+        # No SQL generation, no retrieval, no synthesis call: the intent classifier
+        # already determined this isn't a good-faith investigation question, and its
+        # own reasoning is a sufficient, honest answer — spending further LLM calls on
+        # a question already identified as out of scope would just be wasted cost.
+        synthesis = SynthesisOutput(
+            answer=(
+                "This question doesn't appear to be answerable by this system: "
+                f"{intent.reasoning}"
+            ),
+            citations=[],
+            confidence=Confidence.HIGH,
+            limitations=["Question rejected before SQL generation or retrieval was attempted."],
         )
-    except LlmError:
-        logger.exception("Synthesis LLM call failed for request %s", request_id)
+    else:
+        if route in (Route.SQL, Route.HYBRID):
+            sql_result, tokens = _run_sql_stage(question)
+            llm_model = tokens[0] or llm_model
+            llm_input_tokens += tokens[1]
+            llm_output_tokens += tokens[2]
+
+        if route in (Route.RAG, Route.HYBRID):
+            evidence = _run_rag_stage(question)
+
+        try:
+            synthesis = synthesize(
+                question=question,
+                sql=sql_result.executed_sql if sql_result else None,
+                sql_rows=sql_result.rows if sql_result else None,
+                evidence_chunks=[e.model_dump() for e in evidence],
+            )
+        except LlmError:
+            logger.exception("Synthesis LLM call failed for request %s", request_id)
 
     latency_ms = int((time.perf_counter() - start) * 1000)
 
