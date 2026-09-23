@@ -100,10 +100,13 @@ def upgrade() -> None:
         sa.Column("content", sa.Text, nullable=False),
         sa.Column("embedding", Vector(384), nullable=False),
     )
-    op.execute(
-        "CREATE INDEX ix_document_chunks_embedding ON document_chunks "
-        "USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)"
-    )
+    # Deliberately no ANN index (IVFFlat/HNSW) here: the corpus is ~15 curated
+    # documents (a few hundred chunks at most, see ARCHITECTURE.md's scope
+    # boundaries), and IVFFlat specifically is actively counterproductive below
+    # roughly a few thousand rows — with `lists` sized for a large corpus, each
+    # cluster ends up holding a handful of vectors or fewer, which degrades recall
+    # rather than improving query speed on a table small enough for an exact
+    # sequential scan to already be sub-millisecond. Revisit if the corpus grows.
 
     op.create_table(
         "query_log",
@@ -125,7 +128,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("query_log")
-    op.drop_index("ix_document_chunks_embedding", table_name="document_chunks")
     op.drop_table("document_chunks")
     op.drop_table("documents")
     op.drop_index("ix_crimes_arrest", table_name="crimes")

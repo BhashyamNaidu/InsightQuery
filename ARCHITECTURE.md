@@ -107,7 +107,11 @@ query_log
 
 Indexes: `crimes(occurred_at)`, `crimes(primary_type)`, `crimes(district_code)`,
 `crimes(community_area_code)`, `crimes(arrest)`, composite `(primary_type, occurred_at)` for
-trend-by-category queries, and an IVFFlat (or HNSW) index on `document_chunks.embedding`.
+trend-by-category queries. `document_chunks.embedding` deliberately has no ANN index
+(IVFFlat/HNSW): the corpus is ~15 documents/a few hundred chunks, small enough that an
+exact sequential distance scan is already sub-millisecond, and IVFFlat specifically
+degrades recall below roughly a few thousand rows rather than helping — see the comment
+in `alembic/versions/0001_initial_schema.py`.
 
 ## 4. Data Flow
 

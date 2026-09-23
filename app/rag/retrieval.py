@@ -35,7 +35,11 @@ def retrieve(session: Session, question: str, top_k: int = DEFAULT_TOP_K) -> lis
 
     results: list[RetrievedChunk] = []
     for chunk, document, dist in rows:
-        # pgvector's cosine_distance is 1 - cosine_similarity for normalized vectors.
+        # pgvector's <=> operator returns cosine distance (1 - cosine similarity)
+        # directly, regardless of whether the stored vectors are normalized;
+        # embeddings are normalized here for a different reason (so the alternative
+        # <#> inner-product operator would also be a valid cosine-equivalent index
+        # strategy), not because it's required for this formula to hold.
         similarity = max(0.0, min(1.0, 1.0 - float(dist)))
         results.append(
             RetrievedChunk(
