@@ -1,0 +1,203 @@
+{
+  "top_k": 5,
+  "n_questions": 15,
+  "recall_at_5": 1.0,
+  "mrr": 0.956,
+  "per_question": [
+    {
+      "question": "What is an IUCR code and what does it map to?",
+      "expected_document": "IUCR Crime Classification Methodology",
+      "retrieved_titles": [
+        "IUCR Crime Classification Methodology",
+        "IUCR Crime Classification Methodology",
+        "FBI UCR Classification: Part I vs. Part II Offenses",
+        "Glossary of Terms",
+        "Glossary of Terms"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "What is the difference between Part I and Part II offenses?",
+      "expected_document": "FBI UCR Classification: Part I vs. Part II Offenses",
+      "retrieved_titles": [
+        "FBI UCR Classification: Part I vs. Part II Offenses",
+        "Index Crimes vs. Non-Index Crimes",
+        "Glossary of Terms",
+        "IUCR Crime Classification Methodology",
+        "Known Data Quality Limitations of the Chicago Crime Dataset"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "How many police districts does Chicago have and what is a beat?",
+      "expected_document": "Chicago Police Department District Structure",
+      "retrieved_titles": [
+        "Chicago Police Department District Structure",
+        "Glossary of Terms",
+        "Chicago Police Department District Structure",
+        "CAPS: Chicago Alternative Policing Strategy",
+        "Known Data Quality Limitations of the Chicago Crime Dataset"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "Has the Chicago Police Department reviewed the crime data before it's published?",
+      "expected_document": "Known Data Quality Limitations of the Chicago Crime Dataset",
+      "retrieved_titles": [
+        "Known Data Quality Limitations of the Chicago Crime Dataset",
+        "Data Refresh Cadence and Extraction Timing",
+        "IUCR Crime Classification Methodology",
+        "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+        "FBI UCR Classification: Part I vs. Part II Offenses"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "Does an arrest flag mean the person was convicted?",
+      "expected_document": "Definitions: Arrest and Domestic Flags",
+      "retrieved_titles": [
+        "Definitions: Arrest and Domestic Flags",
+        "Definitions: Arrest and Domestic Flags",
+        "Known Data Quality Limitations of the Chicago Crime Dataset",
+        "IUCR Crime Classification Methodology",
+        "Index Crimes vs. Non-Index Crimes"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "What is CAPS and how do beat meetings work?",
+      "expected_document": "CAPS: Chicago Alternative Policing Strategy",
+      "retrieved_titles": [
+        "CAPS: Chicago Alternative Policing Strategy",
+        "CAPS: Chicago Alternative Policing Strategy",
+        "Chicago Police Department District Structure",
+        "Glossary of Terms",
+        "Location Privacy: Why Addresses Are Block-Level"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "What steps can a resident take to reduce their risk of property crime?",
+      "expected_document": "General Crime Prevention Guidance for Residents",
+      "retrieved_titles": [
+        "General Crime Prevention Guidance for Residents",
+        "General Crime Prevention Guidance for Residents",
+        "Location Privacy: Why Addresses Are Block-Level",
+        "CAPS: Chicago Alternative Policing Strategy",
+        "Seasonal and Temporal Crime Patterns: General Context"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "Does crime tend to go up in the summer?",
+      "expected_document": "Seasonal and Temporal Crime Patterns: General Context",
+      "retrieved_titles": [
+        "Seasonal and Temporal Crime Patterns: General Context",
+        "Seasonal and Temporal Crime Patterns: General Context",
+        "Theft Categories and Subtypes",
+        "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+        "Index Crimes vs. Non-Index Crimes"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "What makes a crime an 'index crime'?",
+      "expected_document": "Index Crimes vs. Non-Index Crimes",
+      "retrieved_titles": [
+        "Index Crimes vs. Non-Index Crimes",
+        "IUCR Crime Classification Methodology",
+        "Index Crimes vs. Non-Index Crimes",
+        "FBI UCR Classification: Part I vs. Part II Offenses",
+        "Theft Categories and Subtypes"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "Why are addresses in the dataset truncated to a block instead of exact?",
+      "expected_document": "Location Privacy: Why Addresses Are Block-Level",
+      "retrieved_titles": [
+        "Location Privacy: Why Addresses Are Block-Level",
+        "Known Data Quality Limitations of the Chicago Crime Dataset",
+        "Location Privacy: Why Addresses Are Block-Level",
+        "Known Data Quality Limitations of the Chicago Crime Dataset",
+        "Glossary of Terms"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "Why might year-over-year crime comparisons be misleading?",
+      "expected_document": "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+      "retrieved_titles": [
+        "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+        "Index Crimes vs. Non-Index Crimes",
+        "Index Crimes vs. Non-Index Crimes",
+        "Seasonal and Temporal Crime Patterns: General Context",
+        "IUCR Crime Classification Methodology"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "What are the different subtypes of theft?",
+      "expected_document": "Theft Categories and Subtypes",
+      "retrieved_titles": [
+        "Theft Categories and Subtypes",
+        "Theft Categories and Subtypes",
+        "Glossary of Terms",
+        "Seasonal and Temporal Crime Patterns: General Context",
+        "IUCR Crime Classification Methodology"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "How often is the crime dataset updated and what does extraction date mean?",
+      "expected_document": "Data Refresh Cadence and Extraction Timing",
+      "retrieved_titles": [
+        "Data Refresh Cadence and Extraction Timing",
+        "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+        "Known Data Quality Limitations of the Chicago Crime Dataset",
+        "Seasonal and Temporal Crime Patterns: General Context",
+        "FBI UCR Classification: Part I vs. Part II Offenses"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "What counts as a domestic relationship under Illinois law, and is there a hotline for domestic violence?",
+      "expected_document": "Domestic Violence: Definitions and Resources",
+      "retrieved_titles": [
+        "Domestic Violence: Definitions and Resources",
+        "Known Data Quality Limitations of the Chicago Crime Dataset",
+        "Definitions: Arrest and Domestic Flags",
+        "Glossary of Terms",
+        "Definitions: Arrest and Domestic Flags"
+      ],
+      "rank": 1,
+      "hit": true
+    },
+    {
+      "question": "What is the difference between a ward and a community area?",
+      "expected_document": "Glossary of Terms",
+      "retrieved_titles": [
+        "Chicago Police Department District Structure",
+        "Chicago Police Department District Structure",
+        "Glossary of Terms",
+        "Glossary of Terms",
+        "Location Privacy: Why Addresses Are Block-Level"
+      ],
+      "rank": 3,
+      "hit": true
+    }
+  ]
+}
