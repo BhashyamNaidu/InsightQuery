@@ -26,10 +26,15 @@ class AnalyticsResult:
 def monthly_trend(session: Session, primary_type: str | None = None) -> AnalyticsResult:
     """Crime count per month, optionally filtered to one category — the core
     time-based analysis capability ("how did X change over time")."""
+    # :primary_type is cast explicitly because, when the value is None, it appears
+    # only inside `IS NULL` / an equality comparison — neither gives psycopg3 enough
+    # context to infer the parameter's type, and Postgres raises AmbiguousParameter.
+    # Found running this query for real with primary_type=None (the default!) — a
+    # bug no static SQL syntax check could have caught, only actual execution.
     sql = """
         SELECT date_trunc('month', occurred_at)::date AS month, COUNT(*) AS incident_count
         FROM crimes
-        WHERE (:primary_type IS NULL OR primary_type = :primary_type)
+        WHERE (CAST(:primary_type AS TEXT) IS NULL OR primary_type = CAST(:primary_type AS TEXT))
         GROUP BY month
         ORDER BY month
     """
@@ -131,12 +136,13 @@ def arrest_rate_by_type(session: Session, limit: int = 15) -> AnalyticsResult:
 
 def day_of_week_pattern(session: Session, primary_type: str | None = None) -> AnalyticsResult:
     """Time-based analysis: incident volume by day of week."""
+    # See the identical comment in monthly_trend() above for why the CAST is needed.
     sql = """
         SELECT to_char(occurred_at, 'Day') AS day_of_week,
                EXTRACT(ISODOW FROM occurred_at) AS iso_day_num,
                COUNT(*) AS incident_count
         FROM crimes
-        WHERE (:primary_type IS NULL OR primary_type = :primary_type)
+        WHERE (CAST(:primary_type AS TEXT) IS NULL OR primary_type = CAST(:primary_type AS TEXT))
         GROUP BY day_of_week, iso_day_num
         ORDER BY iso_day_num
     """
