@@ -66,7 +66,15 @@ class ValidationResult:
 def validate_sql(raw_sql: str, *, max_row_limit: int | None = None) -> ValidationResult:
     max_row_limit = max_row_limit or get_settings().sql_row_limit
 
-    sql = (raw_sql or "").strip()
+    # This function is the system's single safety boundary (see module docstring):
+    # it must always return a ValidationResult, never raise, regardless of what a
+    # caller passes it. `(raw_sql or "").strip()` alone crashed with an unhandled
+    # AttributeError on a non-string input (e.g. `123 or ""` evaluates to the
+    # truthy int `123`, which has no .strip()) — found via adversarial input testing.
+    if not isinstance(raw_sql, str):
+        return ValidationResult(ok=False, reason="SQL input must be a string.")
+
+    sql = raw_sql.strip()
     if not sql:
         return ValidationResult(ok=False, reason="Empty SQL.")
 

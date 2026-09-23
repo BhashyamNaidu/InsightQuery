@@ -168,3 +168,26 @@ class TestMalformedInput:
     def test_none_like_input_handled(self):
         result = validate_sql(None)  # type: ignore[arg-type]
         assert not result.ok
+
+    def test_non_string_input_does_not_crash(self):
+        """Regression test: `(raw_sql or "").strip()` crashed with an unhandled
+        AttributeError on a non-string, non-None input, because `123 or ""` evaluates
+        to the truthy int 123, which has no .strip(). Found via adversarial input
+        testing against the live system. validate_sql() must always return a
+        ValidationResult, never raise, no matter what a caller passes it."""
+        for bad_input in (123, 123.45, [], {}, True):
+            result = validate_sql(bad_input)  # type: ignore[arg-type]
+            assert not result.ok
+            assert result.reason is not None
+
+    def test_truncated_sql_rejected_not_crashed(self):
+        result = validate_sql("SELECT * FROM")
+        assert not result.ok
+
+    def test_unbalanced_parens_rejected_not_crashed(self):
+        result = validate_sql("SELECT * FROM crimes WHERE (")
+        assert not result.ok
+
+    def test_typo_keyword_rejected_not_crashed(self):
+        result = validate_sql("SELEKT * FROM crimes")
+        assert not result.ok
