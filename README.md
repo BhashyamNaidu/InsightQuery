@@ -60,15 +60,19 @@ to run once against the containerized DB — see `docker-compose.yml`).
 ### Verified
 
 This exact sequence was run against a real Docker Desktop (WSL2 backend) deployment on
-2026-09-23: 263,841 real 2023 Chicago crime records loaded, 15 reference documents
-chunked/embedded/loaded, `/health` returns healthy, `/rag/retrieve` returns correct
-results, and the `insightquery_readonly` role was confirmed to `SELECT` successfully on
-the four analytics tables while being denied `INSERT`/`DROP`/`DELETE` and denied `SELECT`
-on `query_log`/`documents`/`document_chunks`. Adversarial SQL injection testing (14 attack
+2026-09-23, including both containers (`db` and `api`, the latter built with a CPU-only
+PyTorch wheel — see `docker/Dockerfile`) via a single `docker compose up -d`: 263,841 real
+2023 Chicago crime records loaded, 15 reference documents chunked/embedded/loaded,
+`/health` returns healthy, `/rag/retrieve` returns correct results (through the
+containerized API, not just a local process), `/investigate` degrades gracefully (HTTP
+200, not 500) and still writes an audit-log row during a real LLM outage, and the
+`insightquery_readonly` role was confirmed to `SELECT` successfully on the four analytics
+tables while being denied `INSERT`/`DROP`/`DELETE` and denied `SELECT` on
+`query_log`/`documents`/`document_chunks`. Adversarial SQL injection testing (14 attack
 patterns — stacked statements, comment smuggling, schema enumeration, function abuse,
 `COPY ... TO PROGRAM`, UNION-based credential exfiltration) was blocked entirely by the
 existing validator. See [docs/SQL_SAFETY.md](docs/SQL_SAFETY.md) and
-[docs/SECURITY.md](docs/SECURITY.md) for full results, including two real bugs this
+[docs/SECURITY.md](docs/SECURITY.md) for full results, including the real bugs this
 testing found and fixed.
 
 ### Running tests
