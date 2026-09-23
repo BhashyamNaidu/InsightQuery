@@ -1,0 +1,62 @@
+[
+  {
+    "question": "What is an IUCR code and what does it map to?",
+    "expected_document": "IUCR Crime Classification Methodology"
+  },
+  {
+    "question": "What is the difference between Part I and Part II offenses?",
+    "expected_document": "FBI UCR Classification: Part I vs. Part II Offenses"
+  },
+  {
+    "question": "How many police districts does Chicago have and what is a beat?",
+    "expected_document": "Chicago Police Department District Structure"
+  },
+  {
+    "question": "Has the Chicago Police Department reviewed the crime data before it's published?",
+    "expected_document": "Known Data Quality Limitations of the Chicago Crime Dataset"
+  },
+  {
+    "question": "Does an arrest flag mean the person was convicted?",
+    "expected_document": "Definitions: Arrest and Domestic Flags"
+  },
+  {
+    "question": "What is CAPS and how do beat meetings work?",
+    "expected_document": "CAPS: Chicago Alternative Policing Strategy"
+  },
+  {
+    "question": "What steps can a resident take to reduce their risk of property crime?",
+    "expected_document": "General Crime Prevention Guidance for Residents"
+  },
+  {
+    "question": "Does crime tend to go up in the summer?",
+    "expected_document": "Seasonal and Temporal Crime Patterns: General Context"
+  },
+  {
+    "question": "What makes a crime an 'index crime'?",
+    "expected_document": "Index Crimes vs. Non-Index Crimes"
+  },
+  {
+    "question": "Why are addresses in the dataset truncated to a block instead of exact?",
+    "expected_document": "Location Privacy: Why Addresses Are Block-Level"
+  },
+  {
+    "question": "Why might year-over-year crime comparisons be misleading?",
+    "expected_document": "Methodological Pitfalls in Year-Over-Year Crime Comparisons"
+  },
+  {
+    "question": "What are the different subtypes of theft?",
+    "expected_document": "Theft Categories and Subtypes"
+  },
+  {
+    "question": "How often is the crime dataset updated and what does extraction date mean?",
+    "expected_document": "Data Refresh Cadence and Extraction Timing"
+  },
+  {
+    "question": "What counts as a domestic relationship under Illinois law, and is there a hotline for domestic violence?",
+    "expected_document": "Domestic Violence: Definitions and Resources"
+  },
+  {
+    "question": "What is the difference between a ward and a community area?",
+    "expected_document": "Glossary of Terms"
+  }
+]
