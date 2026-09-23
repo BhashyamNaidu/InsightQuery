@@ -1,0 +1,41 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: insightquery-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: insightquery
+      POSTGRES_USER: insightquery
+      POSTGRES_PASSWORD: insightquery
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init_db_roles.sql:/docker-entrypoint-initdb.d/10_init_roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U insightquery -d insightquery"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: insightquery-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://insightquery:insightquery@db:5432/insightquery
+      READONLY_DATABASE_URL: postgresql+psycopg://insightquery_readonly:insightquery_readonly@db:5432/insightquery
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+
+volumes:
+  pgdata:
