@@ -40,6 +40,20 @@ class TestSafeQueriesAccepted:
         assert "LIMIT 200" in result.sql
         assert any("default LIMIT" in w for w in result.warnings)
 
+    def test_union_across_allowed_tables(self):
+        result = validate_sql(
+            "SELECT primary_type FROM crimes WHERE arrest = true "
+            "UNION SELECT primary_type FROM crimes WHERE domestic = true"
+        )
+        assert result.ok
+        assert "LIMIT 200" in result.sql
+
+    def test_union_with_disallowed_table_on_either_side_rejected(self):
+        result = validate_sql(
+            "SELECT primary_type FROM crimes UNION SELECT name FROM users"
+        )
+        assert not result.ok
+
 
 class TestDestructiveStatementsRejected:
     @pytest.mark.parametrize(
