@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.llm.client import LlmError
 from app.models import QueryLog
 from app.nlsql.executor import execute_readonly
 from app.nlsql.generator import generate_sql
@@ -61,7 +62,13 @@ def investigate(payload: InvestigateRequest) -> InvestigateResponse:
 def sql_query(payload: SqlQueryRequest) -> SqlExecutionResult:
     """Run the NL-to-SQL pipeline standalone — useful for demonstrating SQL
     generation + validation independent of the full investigation flow."""
-    gen = generate_sql(payload.question)
+    try:
+        gen = generate_sql(payload.question)
+    except LlmError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"error_code": "llm_call_failed", "message": str(exc)},
+        ) from exc
     if not gen.validation.ok:
         return SqlExecutionResult(
             generated_sql=gen.raw_sql,

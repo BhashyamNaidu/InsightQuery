@@ -187,6 +187,23 @@ class TestSqlQueryEndpoint:
         assert response.status_code == 502
         assert response.json()["detail"]["error_code"] == "sql_execution_failed"
 
+    def test_llm_call_failure_returns_502_not_generic_500(self, monkeypatch):
+        # Found via live testing without an Anthropic API key configured: an LLM
+        # failure during SQL generation fell through to the generic unhandled-
+        # exception handler (500, "internal_error") instead of being distinguished
+        # from a genuine application bug, unlike the execution-failure path above.
+        from app.llm.client import LlmError
+
+        def fake_generate_sql(question: str):
+            raise LlmError("LLM call failed: connection error")
+
+        monkeypatch.setattr("app.api.routes.generate_sql", fake_generate_sql)
+
+        response = client.post("/sql/query", json={"question": "how many thefts happened"})
+
+        assert response.status_code == 502
+        assert response.json()["detail"]["error_code"] == "llm_call_failed"
+
 
 class TestEvidenceEndpoint:
     def test_invalid_uuid_returns_400(self):
