@@ -150,6 +150,7 @@ class TestSqlQueryEndpoint:
                 raw_sql="DROP TABLE crimes",
                 validation=ValidationResult(ok=False, reason="Statement type 'Drop' is not permitted."),
                 llm_model="claude-sonnet-5",
+                llm_provider="anthropic",
                 input_tokens=10,
                 output_tokens=5,
             )
@@ -172,6 +173,7 @@ class TestSqlQueryEndpoint:
                 raw_sql="SELECT * FROM crimes",
                 validation=ValidationResult(ok=True, sql="SELECT * FROM crimes LIMIT 200"),
                 llm_model="claude-sonnet-5",
+                llm_provider="anthropic",
                 input_tokens=10,
                 output_tokens=5,
             )

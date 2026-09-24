@@ -22,7 +22,12 @@ class QueryLog(Base):
     row_count: Mapped[int] = mapped_column(Integer, nullable=True)
 
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    intent_latency_ms: Mapped[int] = mapped_column(Integer, nullable=True)
+    sql_latency_ms: Mapped[int] = mapped_column(Integer, nullable=True)
+    rag_latency_ms: Mapped[int] = mapped_column(Integer, nullable=True)
+    synthesis_latency_ms: Mapped[int] = mapped_column(Integer, nullable=True)
 
+    llm_provider: Mapped[str] = mapped_column(String(20), nullable=True)
     llm_model: Mapped[str] = mapped_column(String(100), nullable=True)
     llm_input_tokens: Mapped[int] = mapped_column(Integer, nullable=True)
     llm_output_tokens: Mapped[int] = mapped_column(Integer, nullable=True)

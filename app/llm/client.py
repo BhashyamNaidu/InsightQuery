@@ -1,75 +1,65 @@
-"""Thin wrapper around the Anthropic client. Every call site gets back the raw text
-plus token usage, so callers can log usage centrally (see app.core.observability)
-without each caller re-implementing that bookkeeping."""
+"""Provider-agnostic entry point for every LLM call in the app. Callers (intent
+classification, SQL generation, synthesis) only ever import `complete` and
+`LlmError` from here — never a specific provider — so switching LLM_PROVIDER in
+.env changes behavior without changing a single call site. See
+app/llm/providers/base.py for the interface and docs/LLM_STRATEGY.md for why
+"ollama" (local, free) is the default rather than "anthropic" (paid, hosted).
+"""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import lru_cache
 
-import anthropic
-from anthropic import Anthropic
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
-
 from app.core.config import get_settings
+from app.llm.providers.base import LlmProvider, LlmResponse
 
-# Errors worth retrying: transient/server-side (rate limit, connection blip, 5xx).
-# Deliberately excludes AuthenticationError, PermissionDeniedError, NotFoundError,
-# and BadRequestError — a missing/invalid API key or a malformed request will fail
-# identically on every attempt, so retrying them only adds latency (found via live
-# testing: retrying a bad-auth failure 3x with exponential backoff turned an
-# instant, permanent failure into a ~40 second one before the caller ever saw it).
-_RETRYABLE_ERRORS = (
-    anthropic.RateLimitError,
-    anthropic.APIConnectionError,
-    anthropic.APITimeoutError,
-    anthropic.InternalServerError,
-)
-
-
-@dataclass
-class LlmResponse:
-    text: str
-    model: str
-    input_tokens: int
-    output_tokens: int
-
-
-@lru_cache
-def _get_client() -> Anthropic:
-    return Anthropic(api_key=get_settings().anthropic_api_key)
+__all__ = ["LlmResponse", "LlmError", "complete"]
 
 
 class LlmError(RuntimeError):
-    """Raised when the LLM call fails after retries, or returns unusable output."""
+    """Raised when the LLM call fails after retries, returns unusable output, or
+    no provider is configured/reachable. Every caller in this codebase treats this
+    as a normal, expected failure mode to degrade gracefully from — not a crash."""
 
 
-@retry(
-    reraise=True,
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=8),
-    retry=retry_if_exception_type(_RETRYABLE_ERRORS),
-)
-def _call_anthropic(system: str, user: str, max_tokens: int) -> LlmResponse:
+@lru_cache
+def _get_provider(provider_name: str) -> LlmProvider:
     settings = get_settings()
-    client = _get_client()
-    message = client.messages.create(
-        model=settings.llm_model,
-        max_tokens=max_tokens,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-    )
-    text = "".join(block.text for block in message.content if hasattr(block, "text"))
-    return LlmResponse(
-        text=text,
-        model=settings.llm_model,
-        input_tokens=message.usage.input_tokens,
-        output_tokens=message.usage.output_tokens,
-    )
+    if provider_name == "anthropic":
+        from app.llm.providers.anthropic_provider import AnthropicProvider
+
+        if not settings.anthropic_api_key:
+            raise LlmError(
+                "LLM_PROVIDER=anthropic but ANTHROPIC_API_KEY is not set. "
+                "Set it in .env, or switch LLM_PROVIDER to 'ollama' for the free "
+                "local option (see docs/LLM_STRATEGY.md)."
+            )
+        return AnthropicProvider(api_key=settings.anthropic_api_key, model=settings.anthropic_model)
+
+    if provider_name == "ollama":
+        from app.llm.providers.ollama_provider import OllamaProvider
+
+        return OllamaProvider(
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_model,
+            timeout_seconds=settings.ollama_timeout_seconds,
+        )
+
+    if provider_name in ("none", ""):
+        raise LlmError(
+            "LLM_PROVIDER is set to 'none' (or unset with no default) — LLM-dependent "
+            "features are disabled. Set LLM_PROVIDER=ollama (free, local) or "
+            "LLM_PROVIDER=anthropic (requires ANTHROPIC_API_KEY) in .env to enable them."
+        )
+
+    raise LlmError(f"Unknown LLM_PROVIDER: '{provider_name}'. Use 'ollama', 'anthropic', or 'none'.")
 
 
 def complete(system: str, user: str, max_tokens: int | None = None) -> LlmResponse:
     settings = get_settings()
+    provider = _get_provider(settings.llm_provider)
     try:
-        return _call_anthropic(system, user, max_tokens or settings.llm_max_output_tokens)
-    except Exception as exc:  # noqa: BLE001 - deliberately broad: any LLM failure -> LlmError
-        raise LlmError(f"LLM call failed: {exc}") from exc
+        return provider.complete(system, user, max_tokens or settings.llm_max_output_tokens)
+    except LlmError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - deliberately broad: any provider failure -> LlmError
+        raise LlmError(f"LLM call failed ({provider.name}): {exc}") from exc

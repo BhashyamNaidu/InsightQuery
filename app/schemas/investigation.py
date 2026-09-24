@@ -52,6 +52,7 @@ class InvestigateResponse(BaseModel):
     evidence: list[EvidenceChunk] = Field(default_factory=list)
     synthesis: SynthesisOutput | None = None
     latency_ms: int
+    stage_latency_ms: dict[str, int] = Field(default_factory=dict)
 
 
 class SqlQueryRequest(BaseModel):

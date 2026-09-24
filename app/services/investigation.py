@@ -11,6 +11,7 @@ import logging
 import time
 import uuid
 
+from app.core.config import get_settings
 from app.llm.client import LlmError
 from app.llm.synthesis import synthesize
 from app.models import QueryLog
@@ -34,8 +35,11 @@ logger = logging.getLogger(__name__)
 def run_investigation(question: str) -> InvestigateResponse:
     start = time.perf_counter()
     request_id = str(uuid.uuid4())
+    stage_ms: dict[str, int] = {}
 
+    t0 = time.perf_counter()
     intent = classify_intent(question)
+    stage_ms["intent"] = int((time.perf_counter() - t0) * 1000)
     route = intent.route
 
     sql_result: SqlExecutionResult | None = None
@@ -61,14 +65,19 @@ def run_investigation(question: str) -> InvestigateResponse:
         )
     else:
         if route in (Route.SQL, Route.HYBRID):
+            t0 = time.perf_counter()
             sql_result, tokens = _run_sql_stage(question)
+            stage_ms["sql"] = int((time.perf_counter() - t0) * 1000)
             llm_model = tokens[0] or llm_model
             llm_input_tokens += tokens[1]
             llm_output_tokens += tokens[2]
 
         if route in (Route.RAG, Route.HYBRID):
+            t0 = time.perf_counter()
             evidence = _run_rag_stage(question)
+            stage_ms["rag"] = int((time.perf_counter() - t0) * 1000)
 
+        t0 = time.perf_counter()
         try:
             synthesis = synthesize(
                 question=question,
@@ -78,6 +87,7 @@ def run_investigation(question: str) -> InvestigateResponse:
             )
         except LlmError:
             logger.exception("Synthesis LLM call failed for request %s", request_id)
+        stage_ms["synthesis"] = int((time.perf_counter() - t0) * 1000)
 
     latency_ms = int((time.perf_counter() - start) * 1000)
 
@@ -87,6 +97,7 @@ def run_investigation(question: str) -> InvestigateResponse:
         route=route,
         sql_result=sql_result,
         latency_ms=latency_ms,
+        stage_ms=stage_ms,
         llm_model=llm_model,
         llm_input_tokens=llm_input_tokens,
         llm_output_tokens=llm_output_tokens,
@@ -101,6 +112,7 @@ def run_investigation(question: str) -> InvestigateResponse:
         evidence=evidence,
         synthesis=synthesis,
         latency_ms=latency_ms,
+        stage_latency_ms=stage_ms,
     )
 
 
@@ -186,6 +198,7 @@ def _persist_log(
     route: Route,
     sql_result: SqlExecutionResult | None,
     latency_ms: int,
+    stage_ms: dict[str, int],
     llm_model: str | None,
     llm_input_tokens: int,
     llm_output_tokens: int,
@@ -201,6 +214,11 @@ def _persist_log(
                 sql_rejection_reason=sql_result.rejection_reason if sql_result else None,
                 row_count=sql_result.row_count if sql_result else None,
                 latency_ms=latency_ms,
+                intent_latency_ms=stage_ms.get("intent"),
+                sql_latency_ms=stage_ms.get("sql"),
+                rag_latency_ms=stage_ms.get("rag"),
+                synthesis_latency_ms=stage_ms.get("synthesis"),
+                llm_provider=get_settings().llm_provider,
                 llm_model=llm_model,
                 llm_input_tokens=llm_input_tokens or None,
                 llm_output_tokens=llm_output_tokens or None,

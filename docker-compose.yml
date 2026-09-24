@@ -37,6 +37,14 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://insightquery:insightquery@db:5432/insightquery
       READONLY_DATABASE_URL: postgresql+psycopg://insightquery_readonly:insightquery_readonly@db:5432/insightquery
+      # Ollama (the default LLM_PROVIDER) runs on the host, not in a container — see
+      # docs/LLM_STRATEGY.md for why. `localhost` inside this container refers to the
+      # container itself, so it needs Docker Desktop's host-machine DNS name instead.
+      # Only takes effect if .env doesn't already set OLLAMA_BASE_URL (env_file above
+      # is overridden by this block's values for any key present in both).
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     depends_on:

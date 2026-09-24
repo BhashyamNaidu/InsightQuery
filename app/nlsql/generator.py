@@ -18,6 +18,7 @@ class SqlGenerationResult:
     raw_sql: str | None
     validation: ValidationResult
     llm_model: str
+    llm_provider: str
     input_tokens: int
     output_tokens: int
 
@@ -33,6 +34,7 @@ def generate_sql(question: str) -> SqlGenerationResult:
                 ok=False, reason="Model determined the question is not answerable via SQL."
             ),
             llm_model=response.model,
+            llm_provider=response.provider,
             input_tokens=response.input_tokens,
             output_tokens=response.output_tokens,
         )
@@ -42,6 +44,7 @@ def generate_sql(question: str) -> SqlGenerationResult:
         raw_sql=raw,
         validation=validation,
         llm_model=response.model,
+        llm_provider=response.provider,
         input_tokens=response.input_tokens,
         output_tokens=response.output_tokens,
     )

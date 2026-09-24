@@ -134,6 +134,13 @@ def get_evidence(query_log_id: str, db: Session = Depends(get_db)) -> dict:
         "sql_rejection_reason": log.sql_rejection_reason,
         "row_count": log.row_count,
         "latency_ms": log.latency_ms,
+        "stage_latency_ms": {
+            "intent": log.intent_latency_ms,
+            "sql": log.sql_latency_ms,
+            "rag": log.rag_latency_ms,
+            "synthesis": log.synthesis_latency_ms,
+        },
+        "llm_provider": log.llm_provider,
         "llm_model": log.llm_model,
         "created_at": log.created_at.isoformat() if log.created_at else None,
     }
