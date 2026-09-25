@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass
 
 from app.llm.client import LlmError, complete
+from app.llm.json_utils import extract_json_object
 from app.llm.prompts import INTENT_SYSTEM_PROMPT
 from app.schemas.investigation import Route
 
@@ -36,7 +37,7 @@ def classify_intent(question: str) -> IntentResult:
         )
 
     try:
-        data = json.loads(response.text)
+        data = json.loads(extract_json_object(response.text))
         route = Route(data["route"])
         reasoning = data.get("reasoning", "")
     except (json.JSONDecodeError, KeyError, ValueError) as exc:

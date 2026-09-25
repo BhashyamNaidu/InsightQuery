@@ -6,6 +6,7 @@ import logging
 from pydantic import ValidationError
 
 from app.llm.client import complete
+from app.llm.json_utils import extract_json_object
 from app.llm.prompts import SYNTHESIS_SYSTEM_PROMPT, build_synthesis_user_prompt
 from app.schemas.investigation import Confidence, SynthesisOutput
 
@@ -27,7 +28,7 @@ def synthesize(
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         response = complete(SYNTHESIS_SYSTEM_PROMPT, user_prompt, max_tokens=1024)
         try:
-            data = json.loads(response.text)
+            data = json.loads(extract_json_object(response.text))
             return SynthesisOutput.model_validate(data)
         except (json.JSONDecodeError, ValidationError) as exc:
             last_error = exc

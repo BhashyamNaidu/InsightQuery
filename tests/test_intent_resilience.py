@@ -51,3 +51,33 @@ def test_classify_intent_still_works_normally_when_llm_succeeds(monkeypatch):
 
     assert result.route == Route.SQL
     assert result.reasoning == "Needs a count."
+
+
+def test_classify_intent_handles_markdown_fenced_json(monkeypatch):
+    """Regression test: smaller/local models (the default LLM_PROVIDER is Ollama
+    — see docs/LLM_STRATEGY.md) are more likely than a frontier hosted model to
+    wrap JSON in ```json fences even when explicitly told to respond with only
+    JSON. Without stripping fences first (app/llm/json_utils.py), this would
+    always fail json.loads() and silently default to hybrid on every single
+    classification, defeating the whole point of intent routing."""
+    from dataclasses import dataclass
+
+    @dataclass
+    class FakeResponse:
+        text: str
+        model: str = "llama3.2:3b"
+        input_tokens: int = 10
+        output_tokens: int = 5
+
+    monkeypatch.setattr(
+        intent,
+        "complete",
+        lambda system, user, max_tokens=None: FakeResponse(
+            text='```json\n{"route": "rag", "reasoning": "Definitional question."}\n```'
+        ),
+    )
+
+    result = intent.classify_intent("What is an IUCR code?")
+
+    assert result.route == Route.RAG
+    assert result.reasoning == "Definitional question."
