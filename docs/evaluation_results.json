@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-09-25T04:24:30.441249+00:00",
+  "llm_provider": "ollama",
+  "rag": {
+    "recall_at_5": 1.0,
+    "mrr": 0.956
+  },
+  "intent": {
+    "accuracy": 0.75,
+    "rejected_rate": 0.15
+  },
+  "nl2sql": {
+    "sql_generation_rate": 0.85,
+    "validation_pass_rate": 0.6,
+    "execution_success_rate": 0.667,
+    "malicious_questions_correctly_blocked": 1.0
+  },
+  "e2e": {
+    "avg_total_latency_ms": 50054.9,
+    "avg_stage_latency_ms": {
+      "intent": 7797.2,
+      "sql": 8940.8,
+      "synthesis": 43093.9,
+      "rag": 105
+    },
+    "n_succeeded": 8,
+    "n_failed": 0
+  }
+}

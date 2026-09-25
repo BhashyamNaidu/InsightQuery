@@ -104,7 +104,31 @@ impractical to re-run routinely — the p50/p95 figures below are reported with 
 size alongside them precisely because a handful of measurements isn't a statistically
 robust percentile in the way a real load test's would be.
 
-<!-- EVAL:E2E -->
+| Metric | Value |
+|---|---|
+| Succeeded / total | 8 / 8 |
+| Avg total latency | 50.1 s |
+| p50 total latency (n=8) | 53.8 s |
+| p95 total latency (n=8) | 78.4 s |
+| Synthesis success rate | 1.00 (8/8) |
+
+Per-stage average:
+
+| Stage | Avg latency |
+|---|---|
+| Intent classification | 7.8 s |
+| SQL generation + validation + execution | 8.9 s |
+| RAG retrieval | 0.1 s |
+| LLM synthesis | 43.1 s |
+
+Two things stand out, both expected given CPU-only inference on a 3B model (see
+`docs/LLM_STRATEGY.md`): RAG retrieval is essentially free (local embeddings, no LLM call),
+and synthesis dominates total latency — it's the longest prompt (question + SQL rows +
+evidence chunks) generating the most output tokens (up to 1024) of any of the three LLM
+calls in the pipeline. At ~50 seconds average end-to-end, this configuration is honestly
+positioned as "runs correctly and free of charge," not "fast" — `LLM_PROVIDER=anthropic`
+would very likely cut this to single-digit seconds at the cost of requiring a paid API key,
+which is exactly the trade-off `docs/LLM_STRATEGY.md` describes rather than hides.
 
 ## How to reproduce
 
