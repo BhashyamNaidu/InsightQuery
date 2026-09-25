@@ -40,6 +40,25 @@ and consciously deferred, not discovered after the fact.
     because a native PostgreSQL install already occupied 5432 — documented in
     `docker-compose.yml` and `.env.example`, not a system limitation, but worth knowing
     if `docker compose up` is ever run on a fresh machine that also has a local Postgres.
+11. **The default local LLM (`llama3.2:3b`) has real, measured accuracy limits** — see
+    `docs/EVALUATION.md` for the actual numbers: 75% intent-classification accuracy, and
+    only 66.7% of validated SQL actually executed successfully (the rest had genuine
+    semantic/type errors — `SUM()` on a boolean column, a `VARCHAR`/integer comparison —
+    that the safety validator correctly let through because they aren't safety violations,
+    just wrong SQL). `LLM_PROVIDER=anthropic` would very likely score higher on both; this
+    is the explicit cost/quality trade-off `docs/LLM_STRATEGY.md` describes, not hidden.
+12. **CPU-only local inference is slow**: ~50s average end-to-end investigation latency
+    (measured, `docs/EVALUATION.md`), dominated by the synthesis call. Acceptable for a
+    demo, not for anything latency-sensitive — `LLM_PROVIDER=anthropic` would be
+    meaningfully faster at the cost of a paid API key.
+13. **LLM output is non-deterministic, including its susceptibility to prompt injection.**
+    A planted-instruction attack against synthesis (fabricating a citation) failed in one
+    test run and succeeded in another, same code, same model — the fix
+    (`app/llm/synthesis.py`'s citation cross-check) closes the *specific* vector this found,
+    but doesn't imply every possible injection vector has been found or is closed by
+    construction the way SQL safety is. This is the honest state of the art for
+    LLM-output security today: verify and constrain what you can deterministically, and
+    keep testing adversarially rather than trusting a prompt instruction.
 
 ## Explicitly out of scope (see `ARCHITECTURE.md` §12 for the full list and rationale)
 
@@ -63,3 +82,10 @@ deliberately not the right complexity for what this system needs to prove.
    sit behind a real public URL rather than a local/demo deployment.
 5. **A small result cache** (e.g. hash of validated SQL, or of the retrieval query) to cut
    both latency and LLM cost on repeated questions.
+6. **Extend the citation-verification pattern to numeric claims.** Citations are now
+   cross-checked against actually-retrieved documents (`app/llm/synthesis.py`, added after
+   a real exploit was found — see `docs/SECURITY.md`); a numeric claim in the answer text
+   (e.g. "theft rose 12%") isn't currently cross-checked against the actual SQL result rows
+   the same way, because verifying a number embedded in free text is a harder parsing
+   problem than checking a citation string against a known set of titles. Worth doing if
+   this continued — it's the same principle, just harder to implement well.
