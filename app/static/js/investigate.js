@@ -204,10 +204,26 @@ function renderTrustSection(data) {
   const evidenceBacked = data.synthesis && (data.synthesis.citations.length > 0 || (data.sql_result && data.sql_result.row_count > 0));
 
   const items = [
-    { ok: sqlSafe === null ? null : sqlSafe, label: "Read-only, validated SQL" },
-    { ok: hasEvidence, label: "Evidence available" },
-    { ok: !!data.synthesis, label: "Synthesis produced" },
-    { ok: !!evidenceBacked, label: "Answer is evidence-backed" },
+    {
+      ok: sqlSafe === null ? null : sqlSafe,
+      label: "Read-only, validated SQL",
+      title: "The generated SQL passed app/nlsql/validator.py's AST-level checks and ran over a database role with SELECT-only grants.",
+    },
+    {
+      ok: hasEvidence,
+      label: "Evidence available",
+      title: "At least one SQL result row or retrieved document chunk was found to ground the answer.",
+    },
+    {
+      ok: !!data.synthesis,
+      label: "Synthesis produced",
+      title: "The LLM produced a schema-validated JSON answer. If false, the LLM was unavailable or its output failed validation twice.",
+    },
+    {
+      ok: !!evidenceBacked,
+      label: "Answer is evidence-backed",
+      title: "The synthesized answer cites a retrieved document or is grounded in returned SQL rows, not general LLM knowledge.",
+    },
   ];
 
   return `
