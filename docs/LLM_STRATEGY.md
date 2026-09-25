@@ -48,6 +48,19 @@ and points toward small (~3B parameter), quantized models specifically chosen fo
 instruction-following rather than raw capability. Default: `llama3.2:3b`
 (`ollama pull llama3.2:3b`, ~2GB on disk).
 
+**Confirmed the hard way, not just estimated:** Ollama's automatic GPU detection tried to
+use the MX250 anyway on its first real request and crashed the inference subprocess
+outright (`CUDA error: shared object initialization failed`, exit code
+`0xc0000409`). The app's existing graceful-degradation path handled it correctly — that
+request's intent classification fell back to `hybrid` with the failure reason logged,
+exactly as designed — but a crash-and-restart on every first request isn't something to
+route around instead of fixing. Set `CUDA_VISIBLE_DEVICES=-1` before starting Ollama to
+force CPU-only mode explicitly, which avoids the crash entirely (verified: two consecutive
+successful requests afterward, no crash, ~1s warm inference for a short prompt). If
+running Ollama as a persistent Windows service, set this at the User or System
+environment-variable level so it's in effect before Ollama starts, not just in the shell
+that happens to launch it once.
+
 ## Trade-off, stated plainly
 
 CPU inference on a 3B model is slower and less reliable at strict-format output (JSON,
