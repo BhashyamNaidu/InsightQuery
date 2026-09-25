@@ -99,6 +99,11 @@ query_log
 ├── sql_rejection_reason TEXT NULL
 ├── row_count          INTEGER NULL
 ├── latency_ms         INTEGER
+├── intent_latency_ms   INTEGER NULL  -- per-stage timing, added once evaluation work needed it
+├── sql_latency_ms      INTEGER NULL
+├── rag_latency_ms      INTEGER NULL
+├── synthesis_latency_ms INTEGER NULL
+├── llm_provider       TEXT NULL   -- 'ollama' | 'anthropic' | ...
 ├── llm_model          TEXT NULL
 ├── llm_input_tokens   INTEGER NULL
 ├── llm_output_tokens  INTEGER NULL
@@ -209,18 +214,44 @@ chunks with source labels (if any), and nothing else. Instructions enforced in t
 - Output is a constrained JSON schema (answer, citations[], confidence, limitations[]),
   validated with Pydantic; malformed output is retried once, then surfaced as a synthesis
   failure rather than silently degraded.
+- Model output is parsed defensively: markdown code fences and surrounding prose are
+  stripped before `json.loads()` (`app/llm/json_utils.py`) — a real gap found once a small
+  local model was actually tested, not just a hosted one that reliably skips them.
+
+### LLM provider abstraction
+
+Every LLM call goes through `app/llm/client.complete()`, which dispatches to a concrete
+`LlmProvider` (`app/llm/providers/`) based on `LLM_PROVIDER` in config: `ollama` (default —
+free, local, no API key) or `anthropic` (paid, requires `ANTHROPIC_API_KEY`). No call site
+(intent classification, SQL generation, synthesis) knows or depends on which provider is
+actually running. Full rationale, hardware fit, and a real GPU-crash finding in
+`docs/LLM_STRATEGY.md`.
 
 ## 8. API Surface (FastAPI)
 
 - `GET /health` — liveness + DB/vector-store connectivity check.
 - `POST /investigate` — the main pipeline: question in, full trace out (intent, SQL,
-  validation verdict, rows, evidence chunks, synthesized answer, citations).
+  validation verdict, rows, evidence chunks, synthesized answer, citations, per-stage
+  latency).
 - `POST /sql/query` — run the NL-to-SQL pipeline standalone (useful for the SQL-safety demo).
 - `POST /rag/retrieve` — run retrieval standalone (useful for the RAG-eval demo).
 - `GET /evidence/{query_log_id}` — fetch the persisted trace for a prior investigation.
+- `GET /investigations` — recent investigation history (backs the dashboard's History page).
+- `GET /evaluations` — the saved evaluation reports from `scripts/evaluate.py` (backs the
+  dashboard's Metrics page); returns `null` for any evaluation that hasn't been run yet
+  rather than a fabricated number.
 
 All request/response bodies are Pydantic models; errors return structured JSON with an
 error code, not raw stack traces.
+
+### Dashboard
+
+Server-rendered (FastAPI + Jinja2 + vanilla JS + Chart.js via CDN — no separate frontend
+build toolchain) at `/`, `/history`, `/metrics` (`app/web/routes.py`,
+`app/templates/`, `app/static/`). Pages call the JSON API above client-side; the server
+never pre-fetches data into a template. Chosen over a separate SPA specifically to avoid
+adding a second dependency ecosystem (Node/npm) to a project whose point is the backend
+safety/auditability model, not a frontend showcase.
 
 ## 9. Security Model
 
@@ -244,8 +275,11 @@ timeout), and secret leakage (`.env` gitignored, no secrets in logs). Full write
 ## 11. Infrastructure
 
 Docker Compose with two services: `db` (`pgvector/pgvector:pg16` image, so pgvector ships
-built-in rather than compiled by hand) and `api` (this FastAPI app). Configuration is
-entirely environment-variable driven (`.env`, gitignored; `.env.example` committed).
+built-in rather than compiled by hand) and `api` (this FastAPI app, built with a CPU-only
+PyTorch wheel — see `docker/Dockerfile` — to avoid a multi-gigabyte CUDA download for a
+container with no GPU). Ollama (the default LLM provider) runs on the host, not in a
+container, reached via Docker Desktop's `host.docker.internal`. Configuration is entirely
+environment-variable driven (`.env`, gitignored; `.env.example` committed).
 
 ## 12. Explicitly Out of Scope
 
