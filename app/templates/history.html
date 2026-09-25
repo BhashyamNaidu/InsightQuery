@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}History — InsightQuery{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Investigation history</h1>
+  <p>Every investigation this system has run is logged to <code>query_log</code> — the audit trail that makes it possible to review what was asked, what SQL ran, and how long each stage took.</p>
+</div>
+
+<div class="card">
+  <div id="history-content" class="loading-state"><span class="spinner"></span>Loading history…</div>
+</div>
+
+<script src="/static/js/common.js"></script>
+<script src="/static/js/history.js"></script>
+{% endblock %}

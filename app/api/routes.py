@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import logging
 import uuid
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import text
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import desc, text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -27,6 +29,8 @@ from app.services.investigation import run_investigation
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+DOCS_DIR = Path(__file__).resolve().parent.parent.parent / "docs"
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -143,4 +147,54 @@ def get_evidence(query_log_id: str, db: Session = Depends(get_db)) -> dict:
         "llm_provider": log.llm_provider,
         "llm_model": log.llm_model,
         "created_at": log.created_at.isoformat() if log.created_at else None,
+    }
+
+
+@router.get("/investigations")
+def list_investigations(
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Recent investigation history, most recent first — backs the dashboard's
+    History page. Returns summaries only (no full SQL result rows) since this is
+    a listing view; fetch /evidence/{id} for a single request's full trace."""
+    logs = db.query(QueryLog).order_by(desc(QueryLog.created_at)).limit(limit).all()
+    return {
+        "results": [
+            {
+                "id": str(log.id),
+                "question": log.question,
+                "route": log.route,
+                "sql_validation_ok": log.sql_validation_ok,
+                "row_count": log.row_count,
+                "latency_ms": log.latency_ms,
+                "llm_provider": log.llm_provider,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ]
+    }
+
+
+@router.get("/evaluations")
+def get_evaluations() -> dict:
+    """Serves the saved evaluation reports (scripts/evaluate.py output) for the
+    dashboard's Metrics page. Returns null for any report that hasn't been run
+    yet — the dashboard shows that honestly rather than a fabricated number."""
+
+    def _load(filename: str) -> dict | None:
+        path = DOCS_DIR / filename
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    return {
+        "summary": _load("evaluation_results.json"),
+        "rag": _load("rag_eval_results.json"),
+        "intent": _load("intent_eval_results.json"),
+        "nl2sql": _load("nl2sql_eval_results.json"),
+        "e2e": _load("e2e_eval_results.json"),
     }

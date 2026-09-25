@@ -52,6 +52,13 @@ services:
         condition: service_healthy
     volumes:
       - ./app:/app/app
+      # The Dockerfile never COPYs docs/ into the image (only requirements.txt and
+      # app/ — see docker/Dockerfile), so without this mount GET /evaluations has
+      # no way to read scripts/evaluate.py's output and the Metrics page would
+      # show "not yet run" even right after running it. Read-write, not :ro,
+      # because scripts run from inside the container (or against this same
+      # database from the host) write these files.
+      - ./docs:/app/docs
 
 volumes:
   pgdata:

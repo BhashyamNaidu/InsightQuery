@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Investigate — InsightQuery{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Ask an investigation question</h1>
+  <p>Structured questions are answered by validated, read-only SQL. Document questions are answered by retrieval. The LLM only synthesizes evidence it is explicitly given — it never invents a number or a source.</p>
+</div>
+
+<div class="card">
+  <form class="query-form" id="query-form">
+    <input type="text" class="query-input" id="question-input" placeholder="e.g. How did theft change month to month in 2023?" autocomplete="off">
+    <button type="submit" class="btn" id="submit-btn">Investigate</button>
+  </form>
+  <div class="example-questions">
+    Try:
+    <button type="button" data-q="What are the top 5 most common crime types?">Top 5 crime types</button>
+    <button type="button" data-q="How did theft change month to month in 2023?">Theft trend over time</button>
+    <button type="button" data-q="What is an IUCR code?">What is an IUCR code?</button>
+    <button type="button" data-q="Is theft up, and why might that be?">Is theft up, and why?</button>
+  </div>
+</div>
+
+<div id="result-area"></div>
+
+<script src="/static/js/common.js"></script>
+<script src="/static/js/investigate.js"></script>
+{% endblock %}

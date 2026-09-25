@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Metrics — InsightQuery{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Evaluation metrics</h1>
+  <p>Numbers here come from <code>scripts/evaluate.py</code>'s saved output, not a live claim — if a metric hasn't been measured, it says so instead of showing a number.</p>
+</div>
+
+<div id="metrics-content" class="loading-state"><span class="spinner"></span>Loading evaluation results…</div>
+
+<script src="/static/js/common.js"></script>
+<script src="/static/js/metrics.js"></script>
+{% endblock %}
