@@ -155,7 +155,7 @@ class TestSqlQueryEndpoint:
                 output_tokens=5,
             )
 
-        monkeypatch.setattr("app.api.routes.generate_sql", fake_generate_sql)
+        monkeypatch.setattr("app.nlsql.pipeline.generate_sql", fake_generate_sql)
 
         response = client.post("/sql/query", json={"question": "delete everything"})
 
@@ -181,8 +181,8 @@ class TestSqlQueryEndpoint:
         def fake_execute_readonly(sql: str):
             raise RuntimeError("database unavailable")
 
-        monkeypatch.setattr("app.api.routes.generate_sql", fake_generate_sql)
-        monkeypatch.setattr("app.api.routes.execute_readonly", fake_execute_readonly)
+        monkeypatch.setattr("app.nlsql.pipeline.generate_sql", fake_generate_sql)
+        monkeypatch.setattr("app.nlsql.pipeline.execute_readonly", fake_execute_readonly)
 
         response = client.post("/sql/query", json={"question": "show me everything"})
 
@@ -199,7 +199,7 @@ class TestSqlQueryEndpoint:
         def fake_generate_sql(question: str):
             raise LlmError("LLM call failed: connection error")
 
-        monkeypatch.setattr("app.api.routes.generate_sql", fake_generate_sql)
+        monkeypatch.setattr("app.nlsql.pipeline.generate_sql", fake_generate_sql)
 
         response = client.post("/sql/query", json={"question": "how many thefts happened"})
 

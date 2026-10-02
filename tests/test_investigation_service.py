@@ -188,7 +188,7 @@ def test_sql_generation_llm_failure_degrades_to_rejected_result(monkeypatch):
     def boom(question: str):
         raise LlmError("provider unreachable")
 
-    monkeypatch.setattr(investigation, "generate_sql", boom)
+    monkeypatch.setattr("app.nlsql.pipeline.generate_sql", boom)
     monkeypatch.setattr(
         investigation,
         "synthesize",
@@ -258,7 +258,7 @@ def test_full_llm_outage_still_persists_query_log(monkeypatch):
         "classify_intent",
         lambda q: IntentResult(route=Route.HYBRID, reasoning="LLM call failed; defaulting to hybrid."),
     )
-    monkeypatch.setattr(investigation, "generate_sql", boom)
+    monkeypatch.setattr("app.nlsql.pipeline.generate_sql", boom)
     monkeypatch.setattr(investigation, "retrieve", lambda session, question: (_ for _ in ()).throw(RuntimeError("down")))
     monkeypatch.setattr(investigation, "synthesize", boom)
 
@@ -270,3 +270,55 @@ def test_full_llm_outage_still_persists_query_log(monkeypatch):
     assert response.synthesis is None
     assert "query_log_entry" in logged
     assert logged["query_log_entry"].route == Route.HYBRID.value
+
+
+def test_repair_is_fully_visible_in_response_and_audit_log(monkeypatch):
+    """Audit requirement: original SQL, that a repair happened, the DB error, and the SQL
+    actually executed must all be recoverable — in the API response AND in query_log."""
+    from app.nlsql.generator import SqlGenerationResult
+    from app.nlsql.pipeline import SqlPipelineResult
+    from app.nlsql.validator import ValidationResult
+    from app.schemas.investigation import SynthesisOutput, Confidence
+
+    logged = {}
+
+    class _Rec(_FakeSession):
+        def add(self, obj):
+            logged["row"] = obj
+
+    monkeypatch.setattr(investigation, "SessionLocal", lambda: _Rec())
+    monkeypatch.setattr(
+        investigation, "classify_intent", lambda q: IntentResult(route=Route.SQL, reasoning="count")
+    )
+    second = SqlGenerationResult(
+        raw_sql="SELECT 1 FROM crimes WHERE district_code = '005'",
+        validation=ValidationResult(ok=True, sql="SELECT 1 FROM crimes WHERE district_code = '005' LIMIT 200"),
+        llm_model="m", llm_provider="ollama", input_tokens=1, output_tokens=1,
+    )
+    monkeypatch.setattr(
+        "app.services.investigation.run_sql_pipeline",
+        lambda q: SqlPipelineResult(
+            generation=second, rows=[{"?column?": 1}], execution_error=None, repaired=True,
+            first_attempt_sql="SELECT 1 FROM crimes WHERE district_code = 5",
+            first_attempt_error="operator does not exist: character varying = integer",
+            input_tokens=2, output_tokens=2,
+        ),
+    )
+    monkeypatch.setattr(
+        investigation, "synthesize",
+        lambda **kw: SynthesisOutput(answer="a", citations=[], confidence=Confidence.LOW, limitations=[]),
+    )
+
+    response = investigation.run_investigation("crimes in district 5")
+
+    r = response.sql_result
+    assert r.repaired is True
+    assert r.first_attempt_sql == "SELECT 1 FROM crimes WHERE district_code = 5"
+    assert "character varying" in r.first_attempt_error
+    assert r.executed_sql.endswith("LIMIT 200")
+    row = logged["row"]
+    assert row.sql_repaired is True
+    assert row.first_attempt_sql == "SELECT 1 FROM crimes WHERE district_code = 5"
+    assert "character varying" in row.first_attempt_error
+    assert row.executed_sql == r.executed_sql
+    assert row.generated_sql == "SELECT 1 FROM crimes WHERE district_code = '005'"

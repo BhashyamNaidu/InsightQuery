@@ -58,3 +58,23 @@ def test_execute_readonly_uses_exec_driver_sql_not_text_execute(monkeypatch):
 
     assert result == []
     fake_connection.exec_driver_sql.assert_called_once_with(sql)
+
+
+def test_percent_signs_are_escaped_for_the_driver(monkeypatch):
+    """Regression: psycopg parses a bare '%' as a placeholder marker, so LIKE patterns and
+    the modulo operator failed at execution. execute_readonly must double them."""
+    from app.nlsql import executor
+
+    fake_connection = MagicMock()
+    fake_connection.exec_driver_sql.return_value = []
+    fake_session = MagicMock()
+    fake_session.connection.return_value = fake_connection
+    fake_session.__enter__.return_value = fake_session
+    fake_session.__exit__.return_value = False
+    monkeypatch.setattr(executor, "ReadOnlySessionLocal", lambda: fake_session)
+
+    executor.execute_readonly("SELECT 1 FROM crimes WHERE description LIKE '%HANDGUN%' AND id % 2 = 0")
+
+    fake_connection.exec_driver_sql.assert_called_once_with(
+        "SELECT 1 FROM crimes WHERE description LIKE '%%HANDGUN%%' AND id %% 2 = 0"
+    )
