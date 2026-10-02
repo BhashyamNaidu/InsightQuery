@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: insightquery
+          POSTGRES_USER: insightquery
+          POSTGRES_PASSWORD: insightquery
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U insightquery -d insightquery"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://insightquery:insightquery@localhost:5432/insightquery
+      READONLY_DATABASE_URL: postgresql+psycopg://insightquery_readonly:insightquery_readonly@localhost:5432/insightquery
+      # No LLM in CI: live-LLM tests detect an unreachable provider and skip.
+      LLM_PROVIDER: none
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies (CPU-only torch, as in docker/Dockerfile)
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Create roles and extension, run migrations, apply grants
+        env:
+          PGPASSWORD: insightquery
+        run: |
+          psql -h localhost -U insightquery -d insightquery -f scripts/init_db_roles.sql
+          alembic upgrade head
+          psql -h localhost -U insightquery -d insightquery -f scripts/grant_readonly.sql
+
+      - name: Test the read-only role boundary directly (not through the app)
+        env:
+          PGPASSWORD: insightquery_readonly
+        run: |
+          RO="psql -h localhost -U insightquery_readonly -d insightquery -v ON_ERROR_STOP=1 -c"
+          $RO "SELECT count(*) FROM crimes"
+          # `! cmd` does not fail a step under `set -e` when cmd unexpectedly succeeds,
+          # so each denial is asserted explicitly.
+          for stmt in "SELECT * FROM query_log" "SELECT * FROM documents"                       "DELETE FROM crimes" "DROP TABLE crimes"; do
+            if $RO "$stmt" >/dev/null 2>&1; then
+              echo "FAIL: read-only role was allowed to run: $stmt"; exit 1
+            fi
+            echo "denied as expected: $stmt"
+          done
+
+      - name: Run tests
+        run: pytest -q
