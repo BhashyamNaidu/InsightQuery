@@ -88,8 +88,10 @@ and consciously deferred, not discovered after the fact.
     three repeats of the live LLM tests, so its cause is unknown. One ablation run
     crashed once with an unrecorded error and passed on re-run. The evaluations in
     `docs/EVALUATION.md` §3b were taken before the literal-`%` executor fix.
-20. **CI is configured but its first GitHub run is verified separately** — see the
-    release notes in the final commit/status; do not assume a green badge from this file.
+20. **CI runs without an LLM.** The GitHub Actions workflow passed on its first run
+    (Postgres/pgvector service, migrations, read-only boundary checks, 164 tests), but it uses
+    `LLM_PROVIDER=none`, so the live-LLM tests are skipped there and the evaluations are
+    never run in CI; those were measured locally only.
 21. **The Docker image installs `build-essential`** that the runtime does not need; harmless
     but larger than necessary.
 
