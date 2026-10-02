@@ -94,8 +94,12 @@ query_log
 ├── request_id        TEXT
 ├── question          TEXT
 ├── route              TEXT   -- 'sql' | 'rag' | 'hybrid' | 'rejected'
-├── generated_sql      TEXT NULL
+├── generated_sql      TEXT NULL   -- raw SQL of the final attempt
+├── executed_sql       TEXT NULL   -- exact validated SQL sent to Postgres (LIMIT applied)
 ├── sql_validation_ok  BOOLEAN NULL
+├── sql_repaired       BOOLEAN NULL -- true if the one bounded repair attempt happened
+├── first_attempt_sql  TEXT NULL   -- original SQL, kept when a repair happened
+├── first_attempt_error TEXT NULL  -- the PostgreSQL error that triggered the repair
 ├── sql_rejection_reason TEXT NULL
 ├── row_count          INTEGER NULL
 ├── latency_ms         INTEGER
@@ -183,6 +187,26 @@ Defense in depth beyond the parser:
 - Statement timeout (`SET statement_timeout`) and `search_path` pinned per-connection.
 - Every generated SQL string and its validation verdict is persisted to `query_log` before
   execution, so a rejected/accepted query is auditable even if the process crashes.
+
+### Bounded repair (`app/nlsql/pipeline.py`)
+
+```
+generate -> validate_sql() --rejected--> STOP (never repaired, never executed)
+                |ok
+             execute (read-only role)
+                |-- success --> return rows
+                |-- PostgreSQL SQL error (ProgrammingError/DataError) -->
+                      ONE repair call (SQL + truncated DB error) -> validate_sql() AGAIN
+                          |-- rejected --> STOP (repaired SQL never executed)
+                          |-- ok --> execute once more; no further retries
+                |-- infrastructure error (connection/timeout) --> no repair
+```
+
+The repair changes correctness, not safety: both attempts pass the same validator and run
+over the same read-only role. The original SQL, the DB error, the regenerated SQL and the
+SQL actually executed are all persisted (`query_log`, migration `0004`) and shown in the
+dashboard. Measured benefit: see `docs/EVALUATION.md` — it was *not* demonstrated to
+improve execution success beyond run-to-run noise.
 
 See `docs/SQL_SAFETY.md` for the adversarial test matrix.
 

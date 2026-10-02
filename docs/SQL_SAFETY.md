@@ -77,6 +77,26 @@ application bug). Neither is treated as sufficient on its own.
   *before* execution is attempted, so a rejected query — or a crash mid-execution — is
   still auditable.
 
+## Execution-error repair (one bounded retry) — and what it deliberately does not do
+
+Measured against a 3B local model, a third of SQL that passed validation still failed at
+PostgreSQL execution (type mismatches, bad aliases — see `docs/EVALUATION.md`). The pipeline
+(`app/nlsql/pipeline.py`) now gives the model **one** chance to correct such a query, shown
+its own SQL plus the (truncated) database error. The constraints are the point:
+
+- **Only execution errors trigger it** (`ProgrammingError`/`DataError` — "this SQL is
+  wrong"). A dropped connection or statement timeout fails identically on retry, so it is
+  never repaired.
+- **A query the validator rejected is never repaired.** A rejection is a safety decision;
+  asking the model to rewrite a rejected query is asking it to route around the boundary.
+- **The repaired SQL is untrusted and goes through `validate_sql()` in full** before it
+  touches the database, over the same read-only role. A "repair" that stacks a `DROP` is
+  rejected exactly like the original would be (`tests/test_sql_pipeline.py`).
+- **At most one attempt**, and the dashboard shows when it happened — a regenerated query is
+  never presented as the model's first answer.
+
+The retry changes *correctness*, not *safety*: the safety layers are identical on both attempts.
+
 ## Known limitation (documented, not hidden)
 
 The column check is table-agnostic: it confirms a referenced column name exists

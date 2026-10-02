@@ -340,3 +340,18 @@ confident claims at scale. The intent/NL-to-SQL/E2E numbers are specific to whic
 `LLM_PROVIDER` was configured for that run (see `docs/EVALUATION.md`'s header for which one)
 — they are not a claim about LLM capability in general, and would look different (likely
 better on strict-format reliability) with a frontier hosted model.
+
+## Q: You added SQL repair — did it improve the system?
+
+Honest answer: **not demonstrably.** I added one bounded repair attempt (only after
+PostgreSQL rejects an already-validated query; repaired SQL is re-validated; validator
+rejections are never repaired) and a PostgreSQL-correctness prompt. A first before/after
+comparison looked like a big win (66.7% → 100% execution success), so I repeated it:
+the *same* old configuration scored 5, 8, 6 and 7 of 10 across four runs, the repair arm
+had the same mean as the no-repair arm, and only 3 of 9 repair attempts worked. The
+difference is inside the model's run-to-run noise. A manual review also showed that
+"executed successfully" overstates correctness (4 of 10 executed queries were wrong). What
+I can claim is the security side: tests with the real validator show malicious SQL can't use
+repair to bypass anything, and the original SQL, DB error, and repaired SQL are all
+audited. I also found, via this analysis, a real bug — a literal `%` in generated SQL
+crashed the driver — and fixed it with unit and real-database tests.

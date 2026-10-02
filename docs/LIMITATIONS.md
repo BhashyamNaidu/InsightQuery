@@ -41,13 +41,14 @@ and consciously deferred, not discovered after the fact.
     `docker-compose.yml` and `.env.example`, not a system limitation, but worth knowing
     if `docker compose up` is ever run on a fresh machine that also has a local Postgres.
 11. **The default local LLM (`llama3.2:3b`) has real, measured accuracy limits** — see
-    `docs/EVALUATION.md` for the actual numbers: 75% intent-classification accuracy, and
-    only 66.7% of validated SQL actually executed successfully (the rest had genuine
+    `docs/EVALUATION.md` for the actual numbers: 80% intent-classification accuracy (16/20; 75% on the
+    previous run), and 88.9% of validated SQL executed successfully in the latest run (66.7%
+    in the first; the difference is within run-to-run noise, see §3b), with the failures being genuine
     semantic/type errors — `SUM()` on a boolean column, a `VARCHAR`/integer comparison —
     that the safety validator correctly let through because they aren't safety violations,
-    just wrong SQL). `LLM_PROVIDER=anthropic` would very likely score higher on both; this
+    just wrong SQL. `LLM_PROVIDER=anthropic` would very likely score higher on both; this
     is the explicit cost/quality trade-off `docs/LLM_STRATEGY.md` describes, not hidden.
-12. **CPU-only local inference is slow**: ~50s average end-to-end investigation latency
+12. **CPU-only local inference is slow**: ~46s average (p95 80s, n=8) end-to-end investigation latency
     (measured, `docs/EVALUATION.md`), dominated by the synthesis call. Acceptable for a
     demo, not for anything latency-sensitive — `LLM_PROVIDER=anthropic` would be
     meaningfully faster at the cost of a paid API key.
@@ -59,6 +60,38 @@ and consciously deferred, not discovered after the fact.
     construction the way SQL safety is. This is the honest state of the art for
     LLM-output security today: verify and constrain what you can deterministically, and
     keep testing adversarially rather than trusting a prompt instruction.
+
+14. **Execution success is not semantic correctness, and only the former is measured.**
+    `evaluate_nl2sql.py` counts a query as successful if PostgreSQL ran it without error.
+    A manual review of one run's legitimate queries found 4 of 10 returned wrong answers
+    despite executing (hallucinated literals, wrong filters; see `docs/EVALUATION.md` §3b).
+    There is no automated semantic-correctness metric yet; building one needs reference
+    answers per question.
+15. **The benefit of the SQL repair step is not demonstrated.** Repeated ablation runs
+    (n=3 per arm) showed the same mean with and without repair, and only 3 of 9 repair
+    attempts succeeded. The step is kept because its security properties are tested and its
+    cost is one extra LLM call only on a PostgreSQL execution error, not because it was
+    shown to raise success rates. Run-to-run variance of the 3B model (5–10 of 10 on the
+    same configuration) is larger than any difference measured.
+16. **The DB error text fed to the repair call is a small prompt-injection channel**
+    (`docs/SECURITY.md`). Its output is untrusted and fully re-validated, so it cannot make
+    an unsafe query run, but it can steer what the model attempts.
+17. **The citation sanitizer is strict.** It drops any model citation that isn't an
+    actually-retrieved document title, which includes a legitimate-sounding but
+    non-document source such as "SQL result: crimes database"; the accompanying
+    limitations note says a citation was removed without explaining this case.
+18. **Large result sets are slow to synthesize.** A query returning ~200 rows produced
+    140–180 s end-to-end latencies in manual runs on CPU inference (a handful of
+    observations, not a benchmark).
+19. **Test-suite and evaluation caveats.** One full-suite run showed 1 failure (163
+    passed) whose detail was not captured; it did not reproduce in later full runs or in
+    three repeats of the live LLM tests, so its cause is unknown. One ablation run
+    crashed once with an unrecorded error and passed on re-run. The evaluations in
+    `docs/EVALUATION.md` §3b were taken before the literal-`%` executor fix.
+20. **CI is configured but its first GitHub run is verified separately** — see the
+    release notes in the final commit/status; do not assume a green badge from this file.
+21. **The Docker image installs `build-essential`** that the runtime does not need; harmless
+    but larger than necessary.
 
 ## Explicitly out of scope (see `ARCHITECTURE.md` §12 for the full list and rationale)
 

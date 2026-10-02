@@ -33,6 +33,12 @@ when that's the honest answer.
   or `anthropic` (paid, requires a key). Every LLM-dependent stage degrades gracefully
   (logged, auditable) if the provider is unreachable or misconfigured — see
   [docs/LLM_STRATEGY.md](docs/LLM_STRATEGY.md).
+- **Bounded SQL repair, fully audited**: if PostgreSQL rejects an already-validated query,
+  the model gets exactly one chance to fix it; the repaired SQL goes through the same
+  validator before it can run, validator rejections are never repaired, and the original
+  SQL, the original database error, and the repaired SQL are all stored in `query_log` and
+  shown in the dashboard. Measured benefit: not demonstrated (see
+  [docs/EVALUATION.md](docs/EVALUATION.md) §3b); the security properties are tested.
 - **A dashboard** (`/`, `/history`, `/metrics`) showing the full investigation trace —
   intent, generated SQL, validation verdict, chart, evidence, per-stage timing, and a
   trust checklist — not just a chat bubble.
@@ -111,11 +117,15 @@ testing found and fixed.
 pytest -q
 ```
 
-130+ tests cover the SQL-safety adversarial matrix, chunking, the API contract, LLM-outage
-resilience, malformed-LLM-output handling, and analytics-query syntax — all runnable
-without a live database or LLM. A smaller set of integration tests (real Postgres) and live
-adversarial tests (a real LLM call — `tests/test_prompt_injection_live.py`) skip
-automatically, rather than fail, if the corresponding dependency isn't reachable.
+160+ tests cover the SQL-safety adversarial matrix, the SQL repair pipeline's security
+boundaries (using the real validator), chunking, the API contract, LLM-outage resilience,
+malformed-LLM-output handling, and analytics-query syntax. Most run without a live database
+or LLM. A smaller set of integration tests (real Postgres, including a real-database
+executor test) and live adversarial tests (a real LLM call —
+`tests/test_prompt_injection_live.py`) skip automatically, rather than fail, if the
+corresponding dependency isn't reachable. CI (`.github/workflows/ci.yml`) runs the suite
+against a pgvector Postgres service with `LLM_PROVIDER=none` and checks the read-only
+role's privilege boundary.
 
 ### Running evaluations
 

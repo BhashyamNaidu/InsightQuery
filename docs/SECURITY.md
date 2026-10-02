@@ -110,6 +110,29 @@ test this codebase's plumbing, not actual model behavior under an adversarial pr
 That testing is tracked separately — see the git commit history for whether/when it ran
 and what it found, rather than assuming a result from this paragraph alone.
 
+## SQL repair path (added 2026-10-03)
+
+**Threat:** a retry-with-LLM step could become a bypass — if the model were asked to
+"fix" a query the validator rejected, an attacker's SQL could be rewritten into something
+that passes, or the repaired SQL could reach the database unvalidated.
+
+**Controls (all covered by `tests/test_sql_pipeline.py`, using the *real* `validate_sql()`
+rather than a mocked verdict):** only PostgreSQL execution errors on an already-validated
+query trigger it — a validator rejection is a hard stop that never reaches the repair
+function; the repaired SQL is validated again in full; there is exactly one attempt; and
+connection/timeout failures are never repaired. 7 malicious SQL shapes (stacked `DROP`,
+`DELETE`, `query_log` access, `information_schema`, `pg_sleep`, comment smuggling) were
+verified to reach neither execution nor repair, and an unsafe "repair" was verified to be
+rejected and never executed. The validator, column/table allow-list, and database grants
+had **zero diff** from the previous commit — no security control was loosened to improve
+evaluation scores.
+
+**Residual risk, stated plainly:** the PostgreSQL error text is fed back to the LLM
+(truncated to 300 characters). Error messages can echo fragments of user-influenced SQL
+literals, so this is a small prompt-injection channel into the repair call. Its output is
+still untrusted and fully validated, so it cannot cause an unsafe query to execute, but it
+could steer what the model *tries* to write.
+
 ## Explicitly out of scope for this project
 
 - Authentication/authorization (no RBAC, no user accounts) — see `ARCHITECTURE.md` §12.

@@ -15,7 +15,7 @@ estimated; see `docs/EVALUATION.md` for the underlying reports)
 > questions into validated, read-only SQL over PostgreSQL, using an AST-level validator
 > (sqlglot) and a least-privilege database role as independent, defense-in-depth safety
 > layers; 100% of malicious/injection SQL attempts blocked in a 20-case evaluation
-> (`docs/nl2sql_eval_results.json`), covered by 141 automated tests including live
+> (`docs/nl2sql_eval_results.json`), covered by 164 automated tests including live
 > adversarial tests against a real LLM.
 
 **Data Engineering:**
