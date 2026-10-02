@@ -27,5 +27,10 @@ def execute_readonly(sql: str) -> list[dict]:
     with ReadOnlySessionLocal() as session:
         connection = session.connection()
         connection.execute(text(f"SET statement_timeout = {settings.sql_statement_timeout_ms}"))
-        result = connection.exec_driver_sql(sql)
+        # psycopg treats a bare '%' as a parameter-placeholder marker even when no params
+        # are passed, so a literal one — LIKE 'THEFT%', the modulo operator — raised
+        # "only '%s', '%b', '%t' are allowed as placeholders". Found when a failed eval
+        # query was traced to it; no evaluation question used LIKE, so nothing had
+        # exercised it. Doubling makes the driver send a single literal '%'.
+        result = connection.exec_driver_sql(sql.replace("%", "%%"))
         return [dict(row._mapping) for row in result]

@@ -23,6 +23,10 @@ class SqlExecutionResult(BaseModel):
     rejection_reason: str | None = None
     rows: list[dict] = Field(default_factory=list)
     row_count: int = 0
+    repaired: bool = False
+    repair_note: str | None = None
+    first_attempt_sql: str | None = None  # populated only when a repair happened
+    first_attempt_error: str | None = None
 
 
 class EvidenceChunk(BaseModel):

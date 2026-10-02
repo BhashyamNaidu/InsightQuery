@@ -59,8 +59,11 @@ function renderResult(question, data) {
   `;
 
   const rowsForChart = currentRows;
-  if (rowsForChart.length > 0) {
-    renderChart(rowsForChart);
+  if (rowsForChart.length > 0 && !renderChart(rowsForChart)) {
+    // No numeric series to plot (e.g. a single text column): drop the empty card
+    // rather than show a blank canvas under a "Visual Analysis" heading.
+    const card = document.getElementById("chart-card");
+    if (card) card.remove();
   }
   renderTablePage(); // binds its own pagination button listeners on each render
 }
@@ -76,7 +79,8 @@ function renderSqlSection(sqlResult) {
     <div class="card">
       <div class="section-title">Generated SQL</div>
       ${sql ? `<div class="sql-block">${highlightSql(escapeHtml(sql))}</div>` : `<p style="color:var(--text-faint);font-size:13px;">No SQL generated for this question.</p>`}
-      <div style="margin-top:10px;">${validationBadges}</div>
+      <div style="margin-top:10px;">${validationBadges}${sqlResult.repaired ? ' <span class="badge badge-warning" title="The first query failed in PostgreSQL. The model was shown the error once, and its corrected SQL was re-validated before running.">&#8635; Regenerated once after a DB error</span>' : ""}</div>
+      ${sqlResult.repaired ? `<details style="margin-top:8px;font-size:12px;color:var(--text-secondary);"><summary>Original query and the PostgreSQL error that triggered the repair</summary>${sqlResult.first_attempt_sql ? `<div class="sql-block" style="margin-top:6px;">${highlightSql(escapeHtml(sqlResult.first_attempt_sql))}</div>` : ""}<p style="margin-top:6px;color:var(--danger);">${escapeHtml(sqlResult.first_attempt_error || "")}</p></details>` : ""}
       ${!sqlResult.validation_ok && sqlResult.rejection_reason ? `<p style="margin-top:8px;font-size:13px;color:var(--danger);">${escapeHtml(sqlResult.rejection_reason)}</p>` : ""}
       ${sqlResult.validation_ok ? `<p style="margin-top:8px;font-size:12px;color:var(--text-faint);">${sqlResult.row_count} row(s) returned</p>` : ""}
     </div>
@@ -103,7 +107,7 @@ function renderChartAndTableSection(sqlResult) {
   const rows = (sqlResult && sqlResult.rows) || [];
   if (rows.length === 0) return "";
   return `
-    <div class="card">
+    <div class="card" id="chart-card">
       <div class="section-title">Visual Analysis</div>
       <canvas id="result-chart"></canvas>
     </div>
@@ -246,18 +250,18 @@ function renderTrustSection(data) {
 
 function renderChart(rows) {
   const canvas = document.getElementById("result-chart");
-  if (!canvas) return;
+  if (!canvas) return false;
 
   const columns = Object.keys(rows[0]);
   const numericCols = columns.filter((c) => rows.every((r) => r[c] === null || !isNaN(parseFloat(r[c]))));
   const labelCol = columns.find((c) => !numericCols.includes(c)) || columns[0];
   const valueCol = numericCols.find((c) => c !== labelCol);
 
-  if (!valueCol || rows.length < 2) return; // not enough shape for a meaningful chart
+  if (!valueCol || rows.length < 2) return false; // not enough shape for a meaningful chart
 
   const isTimeSeries = /month|date|year|week/i.test(labelCol);
   const tooManyCategories = rows.length > 25;
-  if (tooManyCategories && !isTimeSeries) return;
+  if (tooManyCategories && !isTimeSeries) return false;
 
   const labels = rows.map((r) => String(r[labelCol]));
   const values = rows.map((r) => parseFloat(r[valueCol]) || 0);
@@ -284,4 +288,5 @@ function renderChart(rows) {
       scales: { y: { beginAtZero: true } },
     },
   });
+  return true;
 }

@@ -17,7 +17,11 @@ class QueryLog(Base):
     route: Mapped[str] = mapped_column(String(20), nullable=False)  # sql | rag | hybrid | rejected
 
     generated_sql: Mapped[str] = mapped_column(Text, nullable=True)
+    executed_sql: Mapped[str] = mapped_column(Text, nullable=True)  # exact SQL sent to Postgres
     sql_validation_ok: Mapped[bool] = mapped_column(Boolean, nullable=True)
+    sql_repaired: Mapped[bool] = mapped_column(Boolean, nullable=True)
+    first_attempt_sql: Mapped[str] = mapped_column(Text, nullable=True)
+    first_attempt_error: Mapped[str] = mapped_column(Text, nullable=True)
     sql_rejection_reason: Mapped[str] = mapped_column(Text, nullable=True)
     row_count: Mapped[int] = mapped_column(Integer, nullable=True)
 

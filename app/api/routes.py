@@ -12,8 +12,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.llm.client import LlmError
 from app.models import QueryLog
-from app.nlsql.executor import execute_readonly
-from app.nlsql.generator import generate_sql
+from app.nlsql.pipeline import run_sql_pipeline
 from app.rag.retrieval import retrieve
 from app.schemas.common import HealthResponse
 from app.schemas.investigation import (
@@ -67,31 +66,42 @@ def sql_query(payload: SqlQueryRequest) -> SqlExecutionResult:
     """Run the NL-to-SQL pipeline standalone — useful for demonstrating SQL
     generation + validation independent of the full investigation flow."""
     try:
-        gen = generate_sql(payload.question)
+        result = run_sql_pipeline(payload.question)
     except LlmError as exc:
         raise HTTPException(
             status_code=502,
             detail={"error_code": "llm_call_failed", "message": str(exc)},
         ) from exc
+
+    gen = result.generation
+    note = (
+        f"First attempt failed in PostgreSQL; regenerated once and re-validated."
+        if result.repaired
+        else None
+    )
     if not gen.validation.ok:
         return SqlExecutionResult(
             generated_sql=gen.raw_sql,
             validation_ok=False,
             rejection_reason=gen.validation.reason,
+            repaired=result.repaired,
+            repair_note=note,
+            first_attempt_sql=result.first_attempt_sql,
+            first_attempt_error=result.first_attempt_error,
         )
-    try:
-        rows = execute_readonly(gen.validation.sql)
-    except Exception as exc:  # noqa: BLE001
+    if result.rows is None:
         raise HTTPException(
             status_code=502,
-            detail={"error_code": "sql_execution_failed", "message": str(exc)},
-        ) from exc
+            detail={"error_code": "sql_execution_failed", "message": str(result.execution_error)},
+        )
     return SqlExecutionResult(
         generated_sql=gen.raw_sql,
         executed_sql=gen.validation.sql,
         validation_ok=True,
-        rows=rows,
-        row_count=len(rows),
+        rows=result.rows,
+        row_count=len(result.rows),
+        repaired=result.repaired,
+        repair_note=note,
     )
 
 
@@ -134,7 +144,11 @@ def get_evidence(query_log_id: str, db: Session = Depends(get_db)) -> dict:
         "question": log.question,
         "route": log.route,
         "generated_sql": log.generated_sql,
+        "executed_sql": log.executed_sql,
         "sql_validation_ok": log.sql_validation_ok,
+        "sql_repaired": log.sql_repaired,
+        "first_attempt_sql": log.first_attempt_sql,
+        "first_attempt_error": log.first_attempt_error,
         "sql_rejection_reason": log.sql_rejection_reason,
         "row_count": log.row_count,
         "latency_ms": log.latency_ms,

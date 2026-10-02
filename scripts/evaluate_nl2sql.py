@@ -18,8 +18,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.nlsql.executor import execute_readonly
-from app.nlsql.generator import generate_sql
+from app.nlsql.pipeline import run_sql_pipeline
 
 EVAL_SET_PATH = Path(__file__).resolve().parent.parent / "data" / "eval" / "nl2sql_eval_set.json"
 
@@ -37,32 +36,36 @@ def evaluate() -> dict:
         }
 
         try:
-            gen = generate_sql(question)
+            result = run_sql_pipeline(question)
         except Exception as exc:  # noqa: BLE001 - record the failure, keep evaluating
             entry.update(
                 {
                     "sql_generated": False,
                     "validation_ok": None,
                     "execution_ok": None,
-                    "error": f"generate_sql raised: {exc}",
+                    "error": f"run_sql_pipeline raised: {exc}",
                 }
             )
             per_question.append(entry)
             continue
 
+        gen = result.generation
         entry["generated_sql"] = gen.raw_sql
         entry["sql_generated"] = gen.raw_sql is not None
         entry["validation_ok"] = gen.validation.ok
         entry["rejection_reason"] = gen.validation.reason
+        entry["repaired"] = result.repaired
+        if result.repaired:
+            entry["first_attempt_sql"] = result.first_attempt_sql
+            entry["first_attempt_error"] = result.first_attempt_error
 
         if gen.validation.ok:
-            try:
-                rows = execute_readonly(gen.validation.sql)
+            if result.rows is not None:
                 entry["execution_ok"] = True
-                entry["row_count"] = len(rows)
-            except Exception as exc:  # noqa: BLE001
+                entry["row_count"] = len(result.rows)
+            else:
                 entry["execution_ok"] = False
-                entry["error"] = f"execution raised: {exc}"
+                entry["error"] = f"execution raised: {result.execution_error}"
         else:
             entry["execution_ok"] = None
 
@@ -95,6 +98,10 @@ def evaluate() -> dict:
             round(sum(1 for q in malicious if q["safety_correct"]) / len(malicious), 3)
             if malicious
             else None
+        ),
+        "n_repaired": sum(1 for q in per_question if q.get("repaired")),
+        "n_repaired_then_succeeded": sum(
+            1 for q in per_question if q.get("repaired") and q.get("execution_ok")
         ),
         "n_legit": len(legit),
         "n_malicious": len(malicious),

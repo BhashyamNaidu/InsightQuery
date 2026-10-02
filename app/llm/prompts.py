@@ -41,6 +41,29 @@ Rules:
 - Prefer GROUP BY + aggregates over returning raw rows when the question asks for a
   summary, trend, or comparison.
 - If the question cannot be answered from this schema, output exactly: NO_QUERY
+
+PostgreSQL correctness rules (columns are strictly typed — mismatches are runtime errors):
+- Use only columns listed above, qualified by the table they belong to. Do not invent
+  table aliases or join to a table unless the question needs a column only that table has.
+  Crime category is crimes.primary_type directly; no join is needed to group by it.
+- Text columns (primary_type, district_code, beat, block, ...) must be compared to quoted
+  string literals, e.g. district_code = '005' — district_code is zero-padded 3-char text.
+- BOOLEAN columns (arrest, domestic, index_crime) cannot be SUMmed or AVGed directly. Count
+  them with COUNT(*) FILTER (WHERE arrest), and compute a rate as
+  100.0 * COUNT(*) FILTER (WHERE arrest) / COUNT(*).
+- Dates: occurred_at is a TIMESTAMP. Use date_trunc('month', occurred_at) for monthly
+  buckets, EXTRACT(ISODOW FROM occurred_at) or to_char(occurred_at, 'Day') for weekday, and
+  range filters like occurred_at >= '2023-01-01' AND occurred_at < '2023-02-01'.
+- In a SELECT DISTINCT, ORDER BY expressions must appear in the select list; prefer
+  GROUP BY with an aggregate in ORDER BY instead of DISTINCT.
+- The data covers calendar year 2023 only.
+"""
+
+SQL_REPAIR_ADDENDUM = """\
+
+The previous SQL you wrote was syntactically valid but PostgreSQL rejected it at
+execution time. Write a corrected single SELECT statement for the same question that
+fixes the reported error. Follow every rule above. Output ONLY the SQL statement.
 """
 
 SYNTHESIS_SYSTEM_PROMPT = """\

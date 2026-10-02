@@ -69,7 +69,9 @@ async function loadDetail(id) {
       <div class="card" style="margin-top:16px;">
         <div class="section-title">Detail — ${escapeHtml(detail.request_id)}</div>
         <p style="font-size:14px;"><strong>Question:</strong> ${escapeHtml(detail.question)}</p>
+        ${detail.sql_repaired ? `<p><span class="badge badge-warning">&#8635; Regenerated once after a PostgreSQL error</span></p><p style="font-size:12px;color:var(--text-secondary);margin:6px 0 4px;">Original query (failed):</p><div class="sql-block">${highlightSql(escapeHtml(detail.first_attempt_sql || ""))}</div><p style="color:var(--danger);font-size:12px;margin:4px 0 8px;">${escapeHtml(detail.first_attempt_error || "")}</p><p style="font-size:12px;color:var(--text-secondary);margin:6px 0 4px;">Regenerated query (re-validated before running):</p>` : ""}
         ${detail.generated_sql ? `<div class="sql-block">${highlightSql(escapeHtml(detail.generated_sql))}</div>` : ""}
+        ${detail.executed_sql && detail.executed_sql !== detail.generated_sql ? `<p style="font-size:12px;color:var(--text-secondary);margin:6px 0 4px;">Executed (after validator-applied LIMIT):</p><div class="sql-block">${highlightSql(escapeHtml(detail.executed_sql))}</div>` : ""}
         ${detail.sql_rejection_reason ? `<p style="color:var(--danger);font-size:13px;">${escapeHtml(detail.sql_rejection_reason)}</p>` : ""}
         <table style="margin-top:12px;">
           <tbody>

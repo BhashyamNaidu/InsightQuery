@@ -16,8 +16,7 @@ from app.llm.client import LlmError
 from app.llm.synthesis import synthesize
 from app.models import QueryLog
 from app.db.session import SessionLocal
-from app.nlsql.executor import execute_readonly
-from app.nlsql.generator import generate_sql
+from app.nlsql.pipeline import run_sql_pipeline
 from app.rag.retrieval import retrieve
 from app.schemas.investigation import (
     Confidence,
@@ -118,7 +117,7 @@ def run_investigation(question: str) -> InvestigateResponse:
 
 def _run_sql_stage(question: str) -> tuple[SqlExecutionResult, tuple[str | None, int, int]]:
     try:
-        gen = generate_sql(question)
+        result = run_sql_pipeline(question)
     except LlmError as exc:
         # Same reasoning as classify_intent's LlmError handling: degrade to a
         # rejected result rather than letting this propagate out of
@@ -131,7 +130,15 @@ def _run_sql_stage(question: str) -> tuple[SqlExecutionResult, tuple[str | None,
             ),
             (None, 0, 0),
         )
-    tokens = (gen.llm_model, gen.input_tokens, gen.output_tokens)
+
+    gen = result.generation
+    tokens = (gen.llm_model, result.input_tokens, result.output_tokens)
+    note = (
+        f"First attempt failed in PostgreSQL ({result.first_attempt_error[:160]}); "
+        "the query was regenerated once and re-validated."
+        if result.repaired and result.first_attempt_error
+        else None
+    )
 
     if not gen.validation.ok:
         return (
@@ -139,35 +146,44 @@ def _run_sql_stage(question: str) -> tuple[SqlExecutionResult, tuple[str | None,
                 generated_sql=gen.raw_sql,
                 validation_ok=False,
                 rejection_reason=gen.validation.reason,
+                repaired=result.repaired,
+                repair_note=note,
+                first_attempt_sql=result.first_attempt_sql,
+                first_attempt_error=result.first_attempt_error,
             ),
             tokens,
         )
 
-    try:
-        rows = execute_readonly(gen.validation.sql)
+    if result.rows is None:
+        logger.warning("SQL execution failed: %s", result.execution_error)
         return (
             SqlExecutionResult(
                 generated_sql=gen.raw_sql,
                 executed_sql=gen.validation.sql,
                 validation_ok=True,
-                rows=rows,
-                row_count=len(rows),
+                rejection_reason=f"Execution error: {result.execution_error}",
+                repaired=result.repaired,
+                repair_note=note,
+                first_attempt_sql=result.first_attempt_sql,
+                first_attempt_error=result.first_attempt_error,
             ),
             tokens,
         )
-    except Exception as exc:  # noqa: BLE001 - DB failure must degrade, not crash the pipeline
-        logger.exception("SQL execution failed")
-        return (
-            SqlExecutionResult(
-                generated_sql=gen.raw_sql,
-                executed_sql=gen.validation.sql,
-                validation_ok=True,
-                rejection_reason=f"Execution error: {exc}",
-                rows=[],
-                row_count=0,
-            ),
-            tokens,
-        )
+
+    return (
+        SqlExecutionResult(
+            generated_sql=gen.raw_sql,
+            executed_sql=gen.validation.sql,
+            validation_ok=True,
+            rows=result.rows,
+            row_count=len(result.rows),
+            repaired=result.repaired,
+            repair_note=note,
+            first_attempt_sql=result.first_attempt_sql,
+            first_attempt_error=result.first_attempt_error,
+        ),
+        tokens,
+    )
 
 
 def _run_rag_stage(question: str) -> list[EvidenceChunk]:
@@ -210,7 +226,11 @@ def _persist_log(
                 question=question,
                 route=route.value,
                 generated_sql=sql_result.generated_sql if sql_result else None,
+                executed_sql=sql_result.executed_sql if sql_result else None,
                 sql_validation_ok=sql_result.validation_ok if sql_result else None,
+                sql_repaired=sql_result.repaired if sql_result else None,
+                first_attempt_sql=sql_result.first_attempt_sql if sql_result else None,
+                first_attempt_error=sql_result.first_attempt_error if sql_result else None,
                 sql_rejection_reason=sql_result.rejection_reason if sql_result else None,
                 row_count=sql_result.row_count if sql_result else None,
                 latency_ms=latency_ms,
