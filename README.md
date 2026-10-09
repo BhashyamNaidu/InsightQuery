@@ -47,6 +47,8 @@ when that's the honest answer.
   end-to-end latency against the live system. See [docs/EVALUATION.md](docs/EVALUATION.md)
   for the actual current numbers.
 
+**Project showcase:** https://bhashyamnaidu.github.io/InsightQuery/ — a static case study with recorded investigations, the architecture, security case studies and measurements (source: [`site/`](site/README.md)).
+
 ## Setup
 
 **Prerequisites:** Docker Desktop (with WSL2 backend on Windows), Python 3.11+, and either
