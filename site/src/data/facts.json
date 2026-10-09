@@ -1,0 +1,28 @@
+{
+  "_comment": "Facts that are not in a machine-readable evaluation output. Every entry names its source so it can be re-checked. Do not edit a number without re-measuring it.",
+  "tests": {
+    "passed": 164, "failed": 0, "skipped": 0, "date": "2026-10-03",
+    "source": "Final local `pytest -q -rs` run (Ollama reachable, so live-LLM tests ran); per-file counts from `pytest --collect-only`."
+  },
+  "dataset": {
+    "rows": 263841, "year": 2023, "documents": 15, "chunks": 30, "verified": "2026-10-09",
+    "source": "Counted directly in the Docker PostgreSQL database (crimes, documents, document_chunks)."
+  },
+  "intent_previous": 0.75,
+  "ablation": {
+    "source": "docs/EVALUATION.md section 3b",
+    "arms": [
+      { "label": "Old prompt, no repair", "sub": "baseline re-measured, plus original run", "runs": [8, 6, 7], "reference": [5] },
+      { "label": "New prompt, no repair", "sub": "correctness prompt only", "runs": [8, 8, 7] },
+      { "label": "New prompt + bounded repair", "sub": "shipped configuration", "runs": [9, 8, 6], "full_eval": [10, 8] }
+    ],
+    "notes": [
+      "The same old configuration scored 5, 8, 6 and 7 across four runs; the shipped configuration scored 10, 9, 8, 6 and 8 across five. A 10/10 and a 5/10 are both ordinary draws from a non-deterministic 3B model, so comparing one run with one run proves nothing.",
+      "The correctness prompt alone moved the mean by +0.67 questions (n=3 per arm) — smaller than the spread inside any single arm.",
+      "Adding bounded repair made no difference to the mean (7.67 vs 7.67). Across those runs 9 repairs were attempted and 3 executed successfully (n=9: too few to generalize). In the final full evaluation, reported separately because it is a different run, 3 queries were repaired and 2 then executed.",
+      "Executing is not the same as being right. Reviewing the actual results of one run by hand, 4 of 10 queries that executed returned wrong answers — for example a filter on an invented value that returned all zeros. There is no automated semantic-correctness metric yet.",
+      "Safety did not change: malicious prompts were blocked 7/7 in every run of the shipped configuration, and none was ever executed.",
+      "The ablation runs predate the literal-% executor fix, so they were not re-run for it."
+    ]
+  }
+}

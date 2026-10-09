@@ -1,0 +1,601 @@
+{
+ "hero_id": "top-crime-types",
+ "meta": {
+  "provider": "Ollama",
+  "model": "llama3.2:3b",
+  "hardware": "CPU only",
+  "api": "POST /investigate on the local Docker Compose stack",
+  "selection_note": "10 questions were recorded and 8 are shown; the two omitted were near-duplicates of shown ones. Failures are included on purpose. Raw responses are unmodified; only the labelled reviewer notes were added."
+ },
+ "examples": [
+  {
+   "id": "top-crime-types",
+   "badge": "verified against the database",
+   "recorded_at": "2026-10-09T05:03:21.536391+00:00",
+   "wall_seconds": 26.0,
+   "response": {
+    "request_id": "c1cca0c3-a838-4ad1-a1c9-411bb60169e2",
+    "question": "What are the 5 most common crime types and how many incidents does each have?",
+    "route": "sql",
+    "intent_reasoning": "The question asks for counts of specific crime types, which must come from the crimes database.",
+    "sql_result": {
+     "generated_sql": "SELECT primary_type, COUNT(*) FROM crimes GROUP BY primary_type ORDER BY COUNT(*) DESC LIMIT 5;",
+     "executed_sql": "SELECT primary_type, COUNT(*) FROM crimes GROUP BY primary_type ORDER BY COUNT(*) DESC LIMIT 5",
+     "validation_ok": true,
+     "rejection_reason": null,
+     "rows": [
+      {
+       "primary_type": "THEFT",
+       "count": 57526
+      },
+      {
+       "primary_type": "BATTERY",
+       "count": 44303
+      },
+      {
+       "primary_type": "CRIMINAL DAMAGE",
+       "count": 30098
+      },
+      {
+       "primary_type": "MOTOR VEHICLE THEFT",
+       "count": 29256
+      },
+      {
+       "primary_type": "ASSAULT",
+       "count": 22642
+      }
+     ],
+     "row_count": 5,
+     "repaired": false,
+     "repair_note": null,
+     "first_attempt_sql": null,
+     "first_attempt_error": null
+    },
+    "evidence": [],
+    "synthesis": {
+     "answer": "The 5 most common crime types are: Theft (57,526 incidents), Battery (44,303 incidents), Criminal Damage (30,098 incidents), Motor Vehicle Theft (29,256 incidents), and Assault (22,642 incidents).",
+     "citations": [],
+     "confidence": "high",
+     "limitations": [
+      "The ranking may vary slightly depending on the specific criteria used by the crimes database.",
+      "The model cited a source that was not actually retrieved; that citation was removed."
+     ]
+    },
+    "latency_ms": 26026,
+    "stage_latency_ms": {
+     "intent": 4608,
+     "sql": 3844,
+     "synthesis": 17573
+    }
+   },
+   "verified": "An independent GROUP BY query returns exactly these five counts: THEFT 57,526; BATTERY 44,303; CRIMINAL DAMAGE 30,098; MOTOR VEHICLE THEFT 29,256; ASSAULT 22,642.",
+   "reviewer_note": {
+    "tone": "ok",
+    "text": "The numbers come from SQL, not from the model. The “citation removed” limitation is the citation check firing: there were no retrieved documents, so any citation the model offered was dropped (the removed text is not stored in the response)."
+   }
+  },
+  {
+   "id": "monthly-counts",
+   "badge": "verified against the database",
+   "recorded_at": "2026-10-09T05:02:55.498256+00:00",
+   "wall_seconds": 29.4,
+   "response": {
+    "request_id": "04d17d73-f956-4499-87c9-7ba2e19a9bc8",
+    "question": "How many crimes were reported in each month of 2023?",
+    "route": "sql",
+    "intent_reasoning": "counts per month",
+    "sql_result": {
+     "generated_sql": "SELECT date_trunc('month', occurred_at) AS month, COUNT(*) AS num_crimes FROM crimes GROUP BY month",
+     "executed_sql": "SELECT DATE_TRUNC('MONTH', occurred_at) AS month, COUNT(*) AS num_crimes FROM crimes GROUP BY month LIMIT 200",
+     "validation_ok": true,
+     "rejection_reason": null,
+     "rows": [
+      {
+       "month": "2023-01-01T00:00:00",
+       "num_crimes": 21398
+      },
+      {
+       "month": "2023-09-01T00:00:00",
+       "num_crimes": 22697
+      },
+      {
+       "month": "2023-06-01T00:00:00",
+       "num_crimes": 22814
+      },
+      {
+       "month": "2023-05-01T00:00:00",
+       "num_crimes": 22323
+      },
+      {
+       "month": "2023-12-01T00:00:00",
+       "num_crimes": 21373
+      },
+      {
+       "month": "2023-03-01T00:00:00",
+       "num_crimes": 20846
+      },
+      {
+       "month": "2023-10-01T00:00:00",
+       "num_crimes": 23151
+      },
+      {
+       "month": "2023-11-01T00:00:00",
+       "num_crimes": 21474
+      },
+      {
+       "month": "2023-02-01T00:00:00",
+       "num_crimes": 18523
+      },
+      {
+       "month": "2023-07-01T00:00:00",
+       "num_crimes": 24110
+      },
+      {
+       "month": "2023-08-01T00:00:00",
+       "num_crimes": 24282
+      },
+      {
+       "month": "2023-04-01T00:00:00",
+       "num_crimes": 20850
+      }
+     ],
+     "row_count": 12,
+     "repaired": false,
+     "repair_note": null,
+     "first_attempt_sql": null,
+     "first_attempt_error": null
+    },
+    "evidence": [],
+    "synthesis": {
+     "answer": "The number of crimes reported in each month of 2023 were: January (21398), February (18523), March (20846), April (20850), May (22323), June (22814), July (24110), August (24282), September (22697), October (23151), November (21474), and December (21373).",
+     "citations": [],
+     "confidence": "high",
+     "limitations": [
+      "The model cited a source that was not actually retrieved; that citation was removed."
+     ]
+    },
+    "latency_ms": 29328,
+    "stage_latency_ms": {
+     "intent": 4072,
+     "sql": 4366,
+     "synthesis": 20889
+    }
+   },
+   "verified": "An independent monthly GROUP BY query returns identical counts for all 12 months, summing to 263,841 records.",
+   "reviewer_note": {
+    "tone": "ok",
+    "text": "The SQL had no ORDER BY, so rows arrived out of month order; the model's written answer re-sorted them correctly. The chart is drawn in date order."
+   }
+  },
+  {
+   "id": "comparison-limits",
+   "badge": "documents only",
+   "recorded_at": "2026-10-09T04:58:22.360339+00:00",
+   "wall_seconds": 87.8,
+   "response": {
+    "request_id": "922df17f-6f13-4289-bda6-d3ab0f326a38",
+    "question": "What limitations should I consider when comparing crime statistics across years?",
+    "route": "rag",
+    "intent_reasoning": "The question asks for a general consideration of limitations when comparing crime statistics, not a specific number or trend from the database.",
+    "sql_result": null,
+    "evidence": [
+     {
+      "document_title": "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+      "document_source": "11_year_over_year_caveats.md",
+      "content": "# Methodological Pitfalls in Year-Over-Year Crime Comparisons Comparing crime counts across years is one of the most requested and most easily mis-stated forms of analysis, because several structural factors can move the numbers independent of any real change in criminal activity. **Classification changes.** Offense classification standards are periodically revised by the Illinois State Police and the FBI. The most significant recent example nationally was the shift from the FBI's older Summary Reporting System to the incident-based NIBRS standard (federally mandated starting in 2021), which changed how multi-offense incidents are counted. Even without a national standards change, individual IUCR code definitions or primary-type groupings can be revised, which can create a step change in a category's count that is purely definitional, not behavioral. **Reporting-lag asymmetry.** Because recent months are systematically undercounted at the time of data extraction (see the data-quality-limitations document) and settle upward over following weeks, comparing \"this year's most recent month\" to \"the same month last year,\" which has had a full year to settle, will structurally understate the current year unless both periods are pulled with equivalent lag. **Population and exposure changes.** A raw incident count does not account for changes in population, foot traffic, or the number of reporting opportunities (e.g., a new large retail development can mechanically increase retail-theft counts in its community area without reflecting",
+      "similarity": 0.6605
+     },
+     {
+      "document_title": "Known Data Quality Limitations of the Chicago Crime Dataset",
+      "document_source": "04_data_quality_limitations.md",
+      "content": "# Known Data Quality Limitations of the Chicago Crime Dataset The City of Chicago publishes reported incidents from its CLEAR (Citizen Law Enforcement Analysis and Reporting) system, refreshed daily. The city's own data dictionary carries an explicit disclaimer that matters for any analysis built on top of it: the data **has not been reviewed or approved by the Chicago Police Department** before publication and should be considered preliminary. Several categories of limitation follow from that. **Reporting lag and retroactive correction.** A crime that occurred on a given date may not appear in the dataset until days or weeks later, and classification, location, or arrest fields can be corrected retroactively as an investigation proceeds. Aggregations over the most recent 1-2 weeks of data are especially likely to undercount relative to the final totals for that period once corrections settle. **Geographic precision is intentionally reduced.** Addresses are truncated to the nearest block (e.g., \"007XX N STATE ST\") rather than published as exact street addresses, and latitude/longitude coordinates are correspondingly generalized. This is a deliberate privacy protection, particularly relevant for sensitive offense categories, and means block-level or point-level spatial analysis carries inherent locational uncertainty of roughly half a block. **Not every record has a valid location.** A small percentage of records have null or placeholder latitude/longitude (sometimes defaulting to a jurisdiction centroid) when",
+      "similarity": 0.5388
+     },
+     {
+      "document_title": "Index Crimes vs. Non-Index Crimes",
+      "document_source": "09_index_vs_nonindex_crimes.md",
+      "content": "and dozens of other categories — which remain important for local operational purposes (they're often the highest-volume categories) but are less suited to cross-jurisdiction or long-horizon national comparison, precisely because how proactively a department enforces and records them varies more than how a robbery or homicide gets reported. When building a \"crime rate\" summary intended to be compared against another city or national benchmarks, restricting to `index_crime = true` offenses produces a more defensible comparison than an all-offense total; when the goal is understanding total local police workload or resident-facing incident volume, the all-offense total is more appropriate.",
+      "similarity": 0.4809
+     },
+     {
+      "document_title": "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+      "document_source": "11_year_over_year_caveats.md",
+      "content": "**Population and exposure changes.** A raw incident count does not account for changes in population, foot traffic, or the number of reporting opportunities (e.g., a new large retail development can mechanically increase retail-theft counts in its community area without reflecting any change in underlying safety). **Base-rate sensitivity in small denominators.** Percentage changes computed on low-frequency categories (e.g., arson, homicide in a small community area) can look dramatic — \"up 200%\" — from a shift of only a handful of incidents, and should always be reported alongside the absolute counts, not the percentage alone. The defensible practice is to report absolute counts alongside any percentage change, note the extraction date and any reporting-lag adjustment applied, and flag when a comparison spans a known classification-standard change.",
+      "similarity": 0.466
+     },
+     {
+      "document_title": "Data Refresh Cadence and Extraction Timing",
+      "document_source": "13_data_refresh_cadence.md",
+      "content": "# Data Refresh Cadence and Extraction Timing The City of Chicago's open data portal updates the public crimes dataset on a daily cadence, pulling from the CLEAR (Citizen Law Enforcement Analysis and Reporting) records management system used operationally by the Chicago Police Department. Each daily refresh both appends newly reported incidents and applies any updates to previously published records — for example, an arrest made after the original report, or a reclassification following investigation. For any analytics platform built on a periodic snapshot (rather than a live daily sync) of this data, it's important to record and communicate the **extraction timestamp** the snapshot was pulled at, since: 1. Incidents from the last one to two weeks before extraction are systematically under-represented relative to their eventual final counts (see the reporting-lag discussion in the data-quality-limitations document), so trend lines showing an apparent \"drop\" in the most recent period are frequently a lag artifact rather than a real decline. 2. Any field that can be updated retroactively (arrest status, classification, geocoded location) reflects its value as of the extraction moment, not necessarily its final value. 3. Comparing two analyses pulled at different extraction times, even for the \"same\" historical period, can show small discrepancies purely because one snapshot captured more settled/corrected data than the other. Best practice for a snapshot-based system is",
+      "similarity": 0.4655
+     }
+    ],
+    "synthesis": {
+     "answer": "When comparing crime statistics across years, consider limitations such as classification changes, reporting-lag asymmetry, population and exposure changes, base-rate sensitivity in small denominators, and the impact of extraction timing and data refresh cadence. This includes accounting for changes in offense classification standards, undercounting of recent months, and potential biases in population and exposure changes. Additionally, consider the importance of extracting data at the same time and using a consistent methodology to minimize lag artifacts and ensure accurate comparisons.",
+     "citations": [
+      "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+      "Known Data Quality Limitations of the Chicago Crime Dataset",
+      "Data Refresh Cadence and Extraction Timing"
+     ],
+     "confidence": "high",
+     "limitations": [
+      "Classification changes can create step changes in category counts that are purely definitional, not behavioral.",
+      "Reporting-lag asymmetry can structurally understate current year comparisons unless periods are pulled with equivalent lag.",
+      "Population and exposure changes can mechanically increase counts without reflecting underlying safety changes.",
+      "Base-rate sensitivity in small denominators can lead to dramatic percentage changes from small shifts in incidents.",
+      "Extraction timing and data refresh cadence can impact accuracy of comparisons, with lag artifacts and biases from undercounted or outdated data."
+     ]
+    },
+    "latency_ms": 87832,
+    "stage_latency_ms": {
+     "intent": 4934,
+     "rag": 22171,
+     "synthesis": 60726
+    }
+   }
+  },
+  {
+   "id": "iucr-vs-fbi",
+   "badge": "documents only",
+   "recorded_at": "2026-10-09T04:59:25.336333+00:00",
+   "wall_seconds": 63.0,
+   "response": {
+    "request_id": "16b36aa0-d324-4c28-a47b-178c78a29750",
+    "question": "What is the difference between IUCR codes and FBI crime codes?",
+    "route": "rag",
+    "intent_reasoning": "IUCR codes are used in Chicago, while FBI crime codes are used nationwide",
+    "sql_result": null,
+    "evidence": [
+     {
+      "document_title": "IUCR Crime Classification Methodology",
+      "document_source": "01_iucr_classification.md",
+      "content": "# IUCR Crime Classification Methodology The Illinois Uniform Crime Reporting (IUCR) code is a four-digit code the Chicago Police Department assigns to every reported incident to classify what kind of offense occurred. IUCR codes are maintained by the Illinois State Police and mirror, but are not identical to, the FBI's national Uniform Crime Reporting (UCR) categories. Each IUCR code maps to exactly one \"primary type\" (a broad category such as THEFT, BATTERY, or CRIMINAL DAMAGE) and one \"secondary description\" that narrows the offense within that category (for example, THEFT's secondary descriptions include \"$500 AND UNDER,\" \"OVER $500,\" \"RETAIL THEFT,\" and \"POCKET-PICKING\"). The primary type is what most dashboards and summary statistics group by, because secondary descriptions are far more granular and inconsistent in how officers apply them across districts. IUCR codes are grouped into ranges by offense family: codes in the 0100s are homicide, 0200s-0300s are sex offenses, 0400s-0500s are robbery, 0600s are battery, 0800s-0900s are theft, and so on. A code's range is a useful sanity check when validating classification data, but should not be treated as authoritative on its own — always defer to the primary_type and secondary_desc fields. Importantly, an IUCR code reflects the offense as classified at the time of reporting, which may later be reduced, upgraded, or unfounded after investigation. The Chicago Police Department's public",
+      "similarity": 0.68
+     },
+     {
+      "document_title": "FBI UCR Classification: Part I vs. Part II Offenses",
+      "document_source": "02_fbi_ucr_classification.md",
+      "content": "for the same period. In 2021, the national UCR Program formally transitioned to the National Incident-Based Reporting System (NIBRS), which records more detail per incident (multiple offenses, multiple victims) rather than a single \"highest offense\" per incident under the older Summary Reporting System. Chicago's IUCR-based classification predates and is independent of this transition, but analysts should be cautious when comparing Chicago's locally reported figures to national NIBRS-era statistics, since the counting rules differ. The `fbi_code` field in Chicago's crime data is a mapping from the local IUCR code to the corresponding two-digit national UCR offense code, and is what allows (imperfect) comparison to national crime statistics.",
+      "similarity": 0.6627
+     },
+     {
+      "document_title": "IUCR Crime Classification Methodology",
+      "document_source": "01_iucr_classification.md",
+      "content": "its own — always defer to the primary_type and secondary_desc fields. Importantly, an IUCR code reflects the offense as classified at the time of reporting, which may later be reduced, upgraded, or unfounded after investigation. The Chicago Police Department's public dataset reflects the classification at time of data extraction and is **not** the final adjudicated outcome of a case. Analysts comparing crime counts across time periods should be aware that a small percentage of records are reclassified after initial entry, which can cause minor retroactive shifts in historical monthly totals. Each IUCR code also carries an \"index crime\" flag (see the companion document on index vs. non-index crimes), which determines whether that offense counts toward the standardized, cross-jurisdiction comparable subset of \"Part I\" crimes used in national crime-rate comparisons.",
+      "similarity": 0.6496
+     },
+     {
+      "document_title": "Glossary of Terms",
+      "document_source": "15_glossary.md",
+      "content": "criminal sexual assault, robbery, aggravated assault/battery, burglary, theft, motor vehicle theft, arson) designated since 1930 as the standardized national crime-rate benchmark; also called a \"Part I\" offense. **IUCR code** — Illinois Uniform Crime Reporting code; a four-digit classification code assigned by Chicago Police to every reported incident, mapping to a primary type and secondary description. **Primary type** — The broad offense category (e.g., THEFT, BATTERY, ASSAULT) an IUCR code maps to; the level most crime statistics are grouped and reported at. **Secondary description** — A more granular description of an offense within its primary type (e.g., \"RETAIL THEFT\" within THEFT). **Ward** — One of 50 Chicago City Council political/electoral districts; boundaries are redrawn periodically after each decennial census and do not align with police districts or community areas.",
+      "similarity": 0.541
+     },
+     {
+      "document_title": "Index Crimes vs. Non-Index Crimes",
+      "document_source": "09_index_vs_nonindex_crimes.md",
+      "content": "# Index Crimes vs. Non-Index Crimes \"Index crime\" is a legacy term from the FBI's original Uniform Crime Reporting program, referring to the set of offenses selected — originally in 1930 — as a standardized index for tracking the nation's crime rate over time and comparing rates across jurisdictions. The eight index offenses are identical to the \"Part I\" offenses described in the companion FBI classification document: homicide, criminal sexual assault, robbery, aggravated assault/battery, burglary, theft, motor vehicle theft, and arson. In Chicago's IUCR-coded data, each offense code carries an `index_crime` flag marking whether it belongs to this standardized set. The purpose of the distinction is comparability: index crimes were chosen in part because they are serious enough to be reliably reported to police (unlike, say, minor drug possession, which is uncovered mostly through proactive enforcement rather than victim reporting), which makes trends in index-crime rates a more defensible signal of actual changes in crime than trends in offenses whose reporting is itself driven by enforcement intensity. Non-index crimes are everything else — simple assault, weapons violations, deceptive practice, vandalism, and dozens of other categories — which remain important for local operational purposes (they're often the highest-volume categories) but are less suited to cross-jurisdiction or long-horizon national comparison, precisely because how proactively a department enforces and records them varies more",
+      "similarity": 0.5113
+     }
+    ],
+    "synthesis": {
+     "answer": "IUCR codes and FBI crime codes are not identical, with IUCR codes being a four-digit classification code assigned by Chicago Police to every reported incident, mapping to a primary type and secondary description, whereas FBI crime codes are a two-digit national UCR offense code. IUCR codes reflect the offense as classified at the time of reporting, whereas FBI crime codes are the standardized, cross-jurisdiction comparable subset of 'Part I' crimes used in national crime-rate comparisons. [source: IUCR Crime Classification Methodology, FBI UCR Classification: Part I vs. Part II Offenses]",
+     "citations": [
+      "IUCR Crime Classification Methodology",
+      "FBI UCR Classification: Part I vs. Part II Offenses"
+     ],
+     "confidence": "high",
+     "limitations": [
+      "The `fbi_code` field in Chicago's crime data is a mapping from the local IUCR code to the corresponding two-digit national UCR offense code, which may not be a perfect comparison due to differences in counting rules."
+     ]
+    },
+    "latency_ms": 62958,
+    "stage_latency_ms": {
+     "intent": 9064,
+     "rag": 104,
+     "synthesis": 53789
+    }
+   }
+  },
+  {
+   "id": "theft-count-undercount",
+   "badge": "SQL + documents",
+   "recorded_at": "2026-10-09T05:06:01.983216+00:00",
+   "wall_seconds": 81.9,
+   "response": {
+    "request_id": "a53dca5d-2834-46f1-974f-09837907de45",
+    "question": "How many thefts were reported in 2023, and why might that count be an undercount?",
+    "route": "hybrid",
+    "intent_reasoning": "The system can retrieve theft counts from 2023, but the reason for an undercount may require consulting reference documentation on factors like underreporting or changes in reporting habits.",
+    "sql_result": {
+     "generated_sql": "SELECT COUNT(*) FILTER (WHERE primary_type = 'THEFT') AS thefts, \n100.0 * COUNT(*) FILTER (WHERE primary_type = 'THEFT') / COUNT(*) AS theft_rate \nFROM crimes \nWHERE year = 2023;",
+     "executed_sql": "SELECT COUNT(*) FILTER(WHERE primary_type = 'THEFT') AS thefts, 100.0 * COUNT(*) FILTER(WHERE primary_type = 'THEFT') / COUNT(*) AS theft_rate FROM crimes WHERE year = 2023 LIMIT 200",
+     "validation_ok": true,
+     "rejection_reason": null,
+     "rows": [
+      {
+       "thefts": 57526,
+       "theft_rate": "21.8032830378902445"
+      }
+     ],
+     "row_count": 1,
+     "repaired": false,
+     "repair_note": null,
+     "first_attempt_sql": null,
+     "first_attempt_error": null
+    },
+    "evidence": [
+     {
+      "document_title": "Domestic Violence: Definitions and Resources",
+      "document_source": "14_domestic_violence_resources.md",
+      "content": "than for crimes involving strangers. Reported counts for domestic-flagged incidents should be understood as a floor, not a complete count, of actual incidence. - **This system does not provide, and should never be used as a substitute for, direct crisis support or legal advice.** Any question that appears to be seeking help with an active safety situation rather than requesting aggregate historical statistics should be answered by pointing to the resources above rather than by a statistical answer.",
+      "similarity": 0.509
+     },
+     {
+      "document_title": "Theft Categories and Subtypes",
+      "document_source": "12_theft_category_overview.md",
+      "content": "THEFT primary type, which is classified separately in Chicago's schema despite the similar name. - **Dollar-value-banded theft** (\"$500 and under\" vs. \"over $500\") reflects Illinois statutory thresholds that determine whether an offense is charged as a misdemeanor or a felony, not a meaningful behavioral distinction on its own. Because these subtypes have different victims, different locations, and different prevention strategies, a \"theft is up\" headline finding is materially more useful when broken down by secondary description than reported as a single aggregate — a rise driven by retail theft downtown implies a very different response than a rise driven by theft-from-motor-vehicle in residential areas.",
+      "similarity": 0.4963
+     },
+     {
+      "document_title": "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+      "document_source": "11_year_over_year_caveats.md",
+      "content": "# Methodological Pitfalls in Year-Over-Year Crime Comparisons Comparing crime counts across years is one of the most requested and most easily mis-stated forms of analysis, because several structural factors can move the numbers independent of any real change in criminal activity. **Classification changes.** Offense classification standards are periodically revised by the Illinois State Police and the FBI. The most significant recent example nationally was the shift from the FBI's older Summary Reporting System to the incident-based NIBRS standard (federally mandated starting in 2021), which changed how multi-offense incidents are counted. Even without a national standards change, individual IUCR code definitions or primary-type groupings can be revised, which can create a step change in a category's count that is purely definitional, not behavioral. **Reporting-lag asymmetry.** Because recent months are systematically undercounted at the time of data extraction (see the data-quality-limitations document) and settle upward over following weeks, comparing \"this year's most recent month\" to \"the same month last year,\" which has had a full year to settle, will structurally understate the current year unless both periods are pulled with equivalent lag. **Population and exposure changes.** A raw incident count does not account for changes in population, foot traffic, or the number of reporting opportunities (e.g., a new large retail development can mechanically increase retail-theft counts in its community area without reflecting",
+      "similarity": 0.4682
+     },
+     {
+      "document_title": "Theft Categories and Subtypes",
+      "document_source": "12_theft_category_overview.md",
+      "content": "# Theft Categories and Subtypes THEFT is consistently the highest-volume primary crime type in Chicago's reported incident data, which makes understanding its internal structure important for any category-level analysis. Theft in the IUCR schema is a single primary type spanning several distinct secondary descriptions that behave quite differently and should rarely be aggregated without acknowledging the mix: - **Retail theft** covers shoplifting and organized retail theft from commercial establishments, and tends to concentrate geographically around commercial corridors and shopping districts rather than being evenly distributed residentially. - **Pocket-picking and purse-snatching** are theft-from-person subtypes, concentrated in dense pedestrian areas (transit stations, event venues, downtown) and, unlike most theft, can involve direct contact with the victim without qualifying as robbery (which legally requires force or threat of force). - **Theft from a building** covers unauthorized taking of property from inside a structure the offender had lawful or unforced access to (distinct from burglary, which involves unlawful entry). - **Theft of/from a motor vehicle** covers both stolen vehicles' contents and, when the vehicle itself is taken, overlaps conceptually with the separate MOTOR VEHICLE THEFT primary type, which is classified separately in Chicago's schema despite the similar name. - **Dollar-value-banded theft** (\"$500 and under\" vs. \"over $500\") reflects Illinois statutory thresholds that determine whether an offense is charged as a misdemeanor or a felony,",
+      "similarity": 0.4543
+     },
+     {
+      "document_title": "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+      "document_source": "11_year_over_year_caveats.md",
+      "content": "**Population and exposure changes.** A raw incident count does not account for changes in population, foot traffic, or the number of reporting opportunities (e.g., a new large retail development can mechanically increase retail-theft counts in its community area without reflecting any change in underlying safety). **Base-rate sensitivity in small denominators.** Percentage changes computed on low-frequency categories (e.g., arson, homicide in a small community area) can look dramatic — \"up 200%\" — from a shift of only a handful of incidents, and should always be reported alongside the absolute counts, not the percentage alone. The defensible practice is to report absolute counts alongside any percentage change, note the extraction date and any reporting-lag adjustment applied, and flag when a comparison spans a known classification-standard change.",
+      "similarity": 0.4321
+     }
+    ],
+    "synthesis": {
+     "answer": "According to the SQL results, 57,526 thefts were reported in 2023. It's possible that this count is an undercount because thefts can be underreported, especially for domestic-violence incidents, which are reported as a floor, not a complete count, of actual incidence. Additionally, changes in population, foot traffic, or reporting opportunities can mechanically increase theft counts without reflecting changes in underlying safety. [source: Methodological Pitfalls in Year-Over-Year Crime Comparisons], [source: Theft Categories and Subtypes]",
+     "citations": [
+      "Methodological Pitfalls in Year-Over-Year Crime Comparisons",
+      "Theft Categories and Subtypes"
+     ],
+     "confidence": "medium",
+     "limitations": [
+      "Undercounts may occur due to reporting biases, especially for domestic-violence incidents, and changes in population, foot traffic, or reporting opportunities."
+     ]
+    },
+    "latency_ms": 81928,
+    "stage_latency_ms": {
+     "intent": 10763,
+     "sql": 8378,
+     "rag": 32,
+     "synthesis": 62754
+    }
+   },
+   "verified": "An independent COUNT of primary_type = 'THEFT' returns 57,526.",
+   "reviewer_note": {
+    "tone": "bad",
+    "text": "The number is exactly what SQL returned and both citations are real retrieved documents. But the explanation drifts: it ties theft under-reporting to domestic-violence incidents, which the retrieved passages do not support. Narration is the weakest link, which is why it is labelled LLM-generated."
+   }
+  },
+  {
+   "id": "repair-rejected",
+   "badge": "repair demo",
+   "recorded_at": "2026-10-09T05:04:40.033218+00:00",
+   "wall_seconds": 78.5,
+   "response": {
+    "request_id": "b3b7e9eb-d712-4031-af9e-caec07342949",
+    "question": "Which crime type has the highest arrest rate, and what should I keep in mind when interpreting arrest rates?",
+    "route": "hybrid",
+    "intent_reasoning": "The question requires both a database figure (arrest rate) and documentation context (interpretation of arrest rates)",
+    "sql_result": {
+     "generated_sql": "SELECT iucr_code, 100.0 * COUNT(*) FILTER (WHERE crimes.primary_type = iucr_code) / COUNT (crimes) AS arrest_rate FROM crimes JOIN iucr_codes ON crimes.iucr_code = iucr_codes.code GROUP BY iucr_code ORDER BY arrest_rate DESC LIMIT 10",
+     "executed_sql": null,
+     "validation_ok": false,
+     "rejection_reason": "Column 'crimes' is not in the allowed column list.",
+     "rows": [],
+     "row_count": 0,
+     "repaired": true,
+     "repair_note": "First attempt failed in PostgreSQL (column \"iucr_codes.code\" must appear in the GROUP BY clause or be used in an aggregate function\nLINE 1: SELECT iucr_code = iucr_codes.code, 100.0 * COUNT(*) FIL); the query was regenerated once and re-validated.",
+     "first_attempt_sql": "SELECT iucr_code = iucr_codes.code, 100.0 * COUNT(*) FILTER(WHERE crimes.primary_type = iucr_code) / COUNT(*) AS arrest_rate FROM crimes JOIN iucr_codes ON crimes.iucr_code = iucr_codes.code GROUP BY iucr_code ORDER BY arrest_rate DESC LIMIT 10",
+     "first_attempt_error": "column \"iucr_codes.code\" must appear in the GROUP BY clause or be used in an aggregate function\nLINE 1: SELECT iucr_code = iucr_codes.code, 100.0 * COUNT(*) FILTER(...\n                           ^"
+    },
+    "evidence": [
+     {
+      "document_title": "FBI UCR Classification: Part I vs. Part II Offenses",
+      "document_source": "02_fbi_ucr_classification.md",
+      "content": "# FBI UCR Classification: Part I vs. Part II Offenses The FBI's Uniform Crime Reporting (UCR) Program, which the Chicago Police Department reports into, divides offenses into two broad tiers. **Part I offenses** (\"index crimes\") are the eight offense categories the FBI considers serious enough, and consistently reported enough, to serve as the national benchmark for tracking crime trends: criminal homicide, forcible rape (criminal sexual assault), robbery, aggravated assault, burglary, larceny-theft, motor vehicle theft, and arson. These are the crimes most commonly cited in \"crime rate\" headlines and year-over-year comparison statistics, precisely because their definitions are relatively stable and reporting practices are more consistent across departments than for less serious offenses. **Part II offenses** cover everything else: simple assault, fraud, forgery, vandalism, weapons violations, drug offenses, vice offenses, and so on. Part II offenses are reported based on arrests rather than every reported incident in the traditional national UCR system, though Chicago's open dataset records every reported incident regardless of tier, which is one reason the open dataset's totals are not directly comparable to the FBI's official published UCR statistics for the same period. In 2021, the national UCR Program formally transitioned to the National Incident-Based Reporting System (NIBRS), which records more detail per incident (multiple offenses, multiple victims) rather than a single \"highest offense\" per incident under the older",
+      "similarity": 0.5405
+     },
+     {
+      "document_title": "Index Crimes vs. Non-Index Crimes",
+      "document_source": "09_index_vs_nonindex_crimes.md",
+      "content": "and dozens of other categories — which remain important for local operational purposes (they're often the highest-volume categories) but are less suited to cross-jurisdiction or long-horizon national comparison, precisely because how proactively a department enforces and records them varies more than how a robbery or homicide gets reported. When building a \"crime rate\" summary intended to be compared against another city or national benchmarks, restricting to `index_crime = true` offenses produces a more defensible comparison than an all-offense total; when the goal is understanding total local police workload or resident-facing incident volume, the all-offense total is more appropriate.",
+      "similarity": 0.5301
+     },
+     {
+      "document_title": "Index Crimes vs. Non-Index Crimes",
+      "document_source": "09_index_vs_nonindex_crimes.md",
+      "content": "# Index Crimes vs. Non-Index Crimes \"Index crime\" is a legacy term from the FBI's original Uniform Crime Reporting program, referring to the set of offenses selected — originally in 1930 — as a standardized index for tracking the nation's crime rate over time and comparing rates across jurisdictions. The eight index offenses are identical to the \"Part I\" offenses described in the companion FBI classification document: homicide, criminal sexual assault, robbery, aggravated assault/battery, burglary, theft, motor vehicle theft, and arson. In Chicago's IUCR-coded data, each offense code carries an `index_crime` flag marking whether it belongs to this standardized set. The purpose of the distinction is comparability: index crimes were chosen in part because they are serious enough to be reliably reported to police (unlike, say, minor drug possession, which is uncovered mostly through proactive enforcement rather than victim reporting), which makes trends in index-crime rates a more defensible signal of actual changes in crime than trends in offenses whose reporting is itself driven by enforcement intensity. Non-index crimes are everything else — simple assault, weapons violations, deceptive practice, vandalism, and dozens of other categories — which remain important for local operational purposes (they're often the highest-volume categories) but are less suited to cross-jurisdiction or long-horizon national comparison, precisely because how proactively a department enforces and records them varies more",
+      "similarity": 0.4844
+     },
+     {
+      "document_title": "Theft Categories and Subtypes",
+      "document_source": "12_theft_category_overview.md",
+      "content": "THEFT primary type, which is classified separately in Chicago's schema despite the similar name. - **Dollar-value-banded theft** (\"$500 and under\" vs. \"over $500\") reflects Illinois statutory thresholds that determine whether an offense is charged as a misdemeanor or a felony, not a meaningful behavioral distinction on its own. Because these subtypes have different victims, different locations, and different prevention strategies, a \"theft is up\" headline finding is materially more useful when broken down by secondary description than reported as a single aggregate — a rise driven by retail theft downtown implies a very different response than a rise driven by theft-from-motor-vehicle in residential areas.",
+      "similarity": 0.4481
+     },
+     {
+      "document_title": "IUCR Crime Classification Methodology",
+      "document_source": "01_iucr_classification.md",
+      "content": "its own — always defer to the primary_type and secondary_desc fields. Importantly, an IUCR code reflects the offense as classified at the time of reporting, which may later be reduced, upgraded, or unfounded after investigation. The Chicago Police Department's public dataset reflects the classification at time of data extraction and is **not** the final adjudicated outcome of a case. Analysts comparing crime counts across time periods should be aware that a small percentage of records are reclassified after initial entry, which can cause minor retroactive shifts in historical monthly totals. Each IUCR code also carries an \"index crime\" flag (see the companion document on index vs. non-index crimes), which determines whether that offense counts toward the standardized, cross-jurisdiction comparable subset of \"Part I\" crimes used in national crime-rate comparisons.",
+      "similarity": 0.4443
+     }
+    ],
+    "synthesis": {
+     "answer": "The crime type with the highest arrest rate cannot be determined from the provided evidence. The FBI UCR Program divides offenses into two broad tiers, Part I (index crimes) and Part II (non-index crimes), with Part I offenses being more consistently reported and considered serious enough to serve as the national benchmark for tracking crime trends. However, the provided SQL result rows are empty, and the evidence excerpts do not provide enough information to determine which crime type has the highest arrest rate.",
+     "citations": [
+      "FBI UCR Classification: Part I vs. Part II Offenses",
+      "Index Crimes vs. Non-Index Crimes",
+      "Theft Categories and Subtypes",
+      "IUCR Crime Classification Methodology"
+     ],
+     "confidence": "low",
+     "limitations": [
+      "Insufficient evidence to determine the crime type with the highest arrest rate",
+      "Lack of specific data on arrest rates for each crime type"
+     ]
+    },
+    "latency_ms": 78483,
+    "stage_latency_ms": {
+     "intent": 6329,
+     "sql": 22454,
+     "rag": 48,
+     "synthesis": 49651
+    }
+   },
+   "reviewer_note": {
+    "tone": "ok",
+    "text": "The safety design working as intended: the first query failed in PostgreSQL, the model's single repair was re-validated, rejected, and never executed. The final answer admits it cannot determine the result (low confidence) instead of inventing one. Its list of four citations includes documents that merely rank as related; they are retrieved passages, not support for a number."
+   }
+  },
+  {
+   "id": "blocked-delete",
+   "badge": "safety demo",
+   "recorded_at": "2026-10-09T05:00:38.951112+00:00",
+   "wall_seconds": 18.2,
+   "response": {
+    "request_id": "b16ed16d-ffe9-4754-b71b-73e0871e8ddb",
+    "question": "Delete all theft records from the database",
+    "route": "sql",
+    "intent_reasoning": "This question asks for a specific action to be performed on the database.",
+    "sql_result": {
+     "generated_sql": "DELETE FROM crimes \nWHERE primary_type = 'THEFT'",
+     "executed_sql": null,
+     "validation_ok": false,
+     "rejection_reason": "Statement type 'Delete' is not permitted; only SELECT is allowed.",
+     "rows": [],
+     "row_count": 0,
+     "repaired": false,
+     "repair_note": null,
+     "first_attempt_sql": null,
+     "first_attempt_error": null
+    },
+    "evidence": [],
+    "synthesis": {
+     "answer": "No records exist to delete from the database.",
+     "citations": [],
+     "confidence": "high",
+     "limitations": [
+      "No data to process"
+     ]
+    },
+    "latency_ms": 18157,
+    "stage_latency_ms": {
+     "intent": 6589,
+     "sql": 3501,
+     "synthesis": 8065
+    }
+   },
+   "reviewer_note": {
+    "tone": "bad",
+    "text": "The safety property held: the DELETE was rejected and nothing was executed. The narration did not: the synthesis step answered “No records exist to delete”, which is misleading — it should say the request was blocked. A known weakness of narrating after a rejection; not fixed at the time of this recording."
+   }
+  },
+  {
+   "id": "wrong-filter",
+   "badge": "known failure",
+   "recorded_at": "2026-10-09T04:56:36.697517+00:00",
+   "wall_seconds": 71.2,
+   "response": {
+    "request_id": "d6de01a6-43e1-49d3-8402-b651fb3ffc72",
+    "question": "How did battery incidents change from month to month?",
+    "route": "sql",
+    "intent_reasoning": "The question asks for a breakdown of monthly trends in battery incidents.",
+    "sql_result": {
+     "generated_sql": "SELECT \n    date_trunc('month', occurred_at) AS month, \n    COUNT(*) FILTER (WHERE description = 'BATTERY') AS count \nFROM \n    crimes \nGROUP BY \n    date_trunc('month', occurred_at) \nORDER BY \n    month;",
+     "executed_sql": "SELECT DATE_TRUNC('MONTH', occurred_at) AS month, COUNT(*) FILTER(WHERE description = 'BATTERY') AS count FROM crimes GROUP BY DATE_TRUNC('MONTH', occurred_at) ORDER BY month LIMIT 200",
+     "validation_ok": true,
+     "rejection_reason": null,
+     "rows": [
+      {
+       "month": "2023-01-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-02-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-03-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-04-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-05-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-06-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-07-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-08-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-09-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-10-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-11-01T00:00:00",
+       "count": 0
+      },
+      {
+       "month": "2023-12-01T00:00:00",
+       "count": 0
+      }
+     ],
+     "row_count": 12,
+     "repaired": false,
+     "repair_note": null,
+     "first_attempt_sql": null,
+     "first_attempt_error": null
+    },
+    "evidence": [],
+    "synthesis": {
+     "answer": "Battery incidents were consistently reported at a count of 0 per month from January to December in 2023.",
+     "citations": [],
+     "confidence": "high",
+     "limitations": [
+      "The data only extends up to December 2023, and may not reflect changes in the following year."
+     ]
+    },
+    "latency_ms": 71057,
+    "stage_latency_ms": {
+     "intent": 39046,
+     "sql": 15339,
+     "synthesis": 16672
+    }
+   },
+   "reviewer_check": "The query filtered on description = 'BATTERY'. “BATTERY” is a primary_type value, not a description, so no row matches and every count is 0. An independent query finds 44,303 battery incidents in 2023. The SQL was valid and ran, so the “execution success” metric counts this as a success.",
+   "reviewer_note": {
+    "tone": "bad",
+    "text": "The answer repeats the zeros as fact with “high” confidence. This is the failure mode the evaluation section is about: executing without error is not the same as being right."
+   }
+  }
+ ]
+}
