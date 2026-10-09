@@ -95,11 +95,10 @@ def run_investigation(question: str) -> InvestigateResponse:
                     sql=None if sql_missing else (sql_result.executed_sql if sql_result else None),
                     sql_rows=None if sql_missing else (sql_result.rows if sql_result else None),
                     evidence_chunks=[e.model_dump() for e in evidence],
+                    sql_unavailable=_NO_RESULT_SHORT[_sql_outcome(sql_result)] if sql_missing else None,
                 )
                 if sql_missing:
-                    synthesis = synthesis.model_copy(
-                        update={"limitations": [*synthesis.limitations, _sql_branch_limitation(sql_result)]}
-                    )
+                    synthesis = _qualify_for_missing_sql(synthesis, sql_result)
             except LlmError:
                 logger.exception("Synthesis LLM call failed for request %s", request_id)
             stage_ms["synthesis"] = int((time.perf_counter() - t0) * 1000)
@@ -235,6 +234,37 @@ _NO_RESULT = {
         Confidence.LOW,
     ),
 }
+
+
+_NO_RESULT_SHORT = {
+    "blocked_by_validator": "the query was blocked by the SQL safety validator and nothing was run",
+    "no_query_generated": "no SQL query could be generated",
+    "generation_failed": "the SQL generation step was unavailable",
+    "execution_failed": "the query failed when run against the database",
+}
+
+
+def _qualify_for_missing_sql(synthesis: SynthesisOutput, r: SqlExecutionResult) -> SynthesisOutput:
+    """A hybrid answer written without its database half must say so, whatever the model wrote.
+
+    The model is told (in the prompt) to leave the database part unanswered, but it once
+    answered it anyway from general knowledge ("robbery has the highest arrest rate", high
+    confidence) with nothing to support that. Prompt wording is a request, not a boundary, so
+    this is enforced in code and does not depend on the model complying: a fixed lead-in
+    sentence is put in front of the answer, the confidence is capped at LOW (part of the
+    question is, by construction, unanswered), and the gap is recorded as a limitation.
+    """
+    lead = (
+        f"The database part of this question could not be answered ({_NO_RESULT_SHORT[_sql_outcome(r)]}). "
+        "What follows draws only on the retrieved documents and contains no database figures. "
+    )
+    return synthesis.model_copy(
+        update={
+            "answer": lead + synthesis.answer,
+            "confidence": Confidence.LOW,
+            "limitations": [*synthesis.limitations, _sql_branch_limitation(r)],
+        }
+    )
 
 
 def _sql_branch_limitation(r: SqlExecutionResult) -> str:

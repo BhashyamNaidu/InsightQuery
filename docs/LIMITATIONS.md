@@ -95,6 +95,14 @@ and consciously deferred, not discovered after the fact.
 21. **The Docker image installs `build-essential`** that the runtime does not need; harmless
     but larger than necessary.
 
+22. **A hybrid answer's prose cannot be fully verified.** When the SQL half of a hybrid question
+    has no result (blocked, failed or not generated), the model is told the database part is
+    unanswered and code then forces a lead-in sentence and caps confidence at LOW. In a 5-run
+    live probe on the same question, the previous behaviour asserted an unsupported "highest
+    arrest rate" crime in 5 of 5 runs; after the change 0 of 5 did (plus 3 blocked-SQL runs, 0
+    unsupported claims). Small sample, one question, one model; code can enforce the framing but
+    cannot prove that free text makes no unsupported claim.
+
 ## Explicitly out of scope (see `ARCHITECTURE.md` §12 for the full list and rationale)
 
 Multi-agent orchestration, RBAC, Kubernetes, hybrid (BM25+vector) search, and any cloud

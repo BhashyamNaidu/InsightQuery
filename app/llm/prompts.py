@@ -82,6 +82,8 @@ Rules, none of which may be broken:
    rather than filling the gap with general knowledge.
 5. Clearly separate what the evidence shows (fact) from any reasonable interpretation you
    add (inference) — label inference as such.
+6. If a [SYSTEM NOTICE] says part of the question could not be answered, follow it exactly:
+   that part stays unanswered, and you must not fill it in from general knowledge.
 
 Respond with ONLY a JSON object matching:
 {
@@ -98,8 +100,22 @@ def build_synthesis_user_prompt(
     sql: str | None,
     sql_rows: list[dict] | None,
     evidence_chunks: list[dict],
+    sql_unavailable: str | None = None,
 ) -> str:
     parts = [f"QUESTION: {question}\n"]
+
+    if sql_unavailable:
+        # Written by the system, not derived from user or model text, and kept outside the
+        # [EVIDENCE] tags on purpose: it is an instruction, not data. It exists because a
+        # database part with no result used to leave the model free to guess it (it once
+        # named "robbery" as the highest-arrest-rate crime with nothing to support that).
+        parts.append(
+            "[SYSTEM NOTICE] The database part of this question could not be answered "
+            f"({sql_unavailable}). Do NOT state or imply any figure, ranking, rate, trend or "
+            "comparison that would have come from the database, and do not answer it from "
+            "general knowledge. Using ONLY the document excerpts below, explain what they say "
+            "that is relevant, and say plainly that the database part is unanswered."
+        )
 
     if sql:
         parts.append(f"[EVIDENCE] SQL executed:\n{sql}\n[/EVIDENCE]")

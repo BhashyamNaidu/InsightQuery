@@ -20,9 +20,10 @@ def synthesize(
     sql: str | None = None,
     sql_rows: list[dict] | None = None,
     evidence_chunks: list[dict] | None = None,
+    sql_unavailable: str | None = None,
 ) -> SynthesisOutput:
     evidence_chunks = evidence_chunks or []
-    user_prompt = build_synthesis_user_prompt(question, sql, sql_rows, evidence_chunks)
+    user_prompt = build_synthesis_user_prompt(question, sql, sql_rows, evidence_chunks, sql_unavailable)
 
     last_error: Exception | None = None
     for attempt in range(1, _MAX_ATTEMPTS + 1):
