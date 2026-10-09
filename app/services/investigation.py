@@ -76,17 +76,33 @@ def run_investigation(question: str) -> InvestigateResponse:
             evidence = _run_rag_stage(question)
             stage_ms["rag"] = int((time.perf_counter() - t0) * 1000)
 
-        t0 = time.perf_counter()
-        try:
-            synthesis = synthesize(
-                question=question,
-                sql=sql_result.executed_sql if sql_result else None,
-                sql_rows=sql_result.rows if sql_result else None,
-                evidence_chunks=[e.model_dump() for e in evidence],
-            )
-        except LlmError:
-            logger.exception("Synthesis LLM call failed for request %s", request_id)
-        stage_ms["synthesis"] = int((time.perf_counter() - t0) * 1000)
+        # A SQL branch that never produced a result (blocked by the validator, no query
+        # generated, generation/execution failed) is NOT "a query that returned zero rows".
+        # Passing rows=[] to synthesis made the model read a rejected DELETE as a successful
+        # empty result ("No records exist to delete"), so such a branch contributes no SQL
+        # evidence at all; when nothing else is left to explain, the answer is a
+        # deterministic statement of what happened, with no LLM call.
+        sql_missing = sql_result is not None and _sql_outcome(sql_result) != "executed"
+        if sql_missing and not evidence and _sql_outcome(sql_result) != "generation_failed":
+            # (generation_failed means the LLM itself is down: keep the existing degradation
+            # path, where synthesis is attempted without SQL evidence and may degrade to None.)
+            synthesis = _no_sql_result_answer(sql_result)
+        else:
+            t0 = time.perf_counter()
+            try:
+                synthesis = synthesize(
+                    question=question,
+                    sql=None if sql_missing else (sql_result.executed_sql if sql_result else None),
+                    sql_rows=None if sql_missing else (sql_result.rows if sql_result else None),
+                    evidence_chunks=[e.model_dump() for e in evidence],
+                )
+                if sql_missing:
+                    synthesis = synthesis.model_copy(
+                        update={"limitations": [*synthesis.limitations, _sql_branch_limitation(sql_result)]}
+                    )
+            except LlmError:
+                logger.exception("Synthesis LLM call failed for request %s", request_id)
+            stage_ms["synthesis"] = int((time.perf_counter() - t0) * 1000)
 
     latency_ms = int((time.perf_counter() - start) * 1000)
 
@@ -125,6 +141,7 @@ def _run_sql_stage(question: str) -> tuple[SqlExecutionResult, tuple[str | None,
         logger.warning("SQL generation LLM call failed: %s", exc)
         return (
             SqlExecutionResult(
+                outcome="generation_failed",
                 validation_ok=False,
                 rejection_reason=f"SQL generation LLM call failed: {exc}",
             ),
@@ -143,6 +160,7 @@ def _run_sql_stage(question: str) -> tuple[SqlExecutionResult, tuple[str | None,
     if not gen.validation.ok:
         return (
             SqlExecutionResult(
+                outcome="blocked_by_validator" if gen.raw_sql is not None else "no_query_generated",
                 generated_sql=gen.raw_sql,
                 validation_ok=False,
                 rejection_reason=gen.validation.reason,
@@ -158,6 +176,7 @@ def _run_sql_stage(question: str) -> tuple[SqlExecutionResult, tuple[str | None,
         logger.warning("SQL execution failed: %s", result.execution_error)
         return (
             SqlExecutionResult(
+                outcome="execution_failed",
                 generated_sql=gen.raw_sql,
                 executed_sql=gen.validation.sql,
                 validation_ok=True,
@@ -172,6 +191,7 @@ def _run_sql_stage(question: str) -> tuple[SqlExecutionResult, tuple[str | None,
 
     return (
         SqlExecutionResult(
+            outcome="executed",
             generated_sql=gen.raw_sql,
             executed_sql=gen.validation.sql,
             validation_ok=True,
@@ -183,6 +203,52 @@ def _run_sql_stage(question: str) -> tuple[SqlExecutionResult, tuple[str | None,
             first_attempt_error=result.first_attempt_error,
         ),
         tokens,
+    )
+
+
+def _sql_outcome(r: SqlExecutionResult) -> str:
+    """The explicit outcome, with a conservative inference for results built without one."""
+    if r.outcome:
+        return r.outcome
+    if not r.validation_ok:
+        return "blocked_by_validator"
+    return "execution_failed" if r.rejection_reason else "executed"
+
+
+_NO_RESULT = {
+    "blocked_by_validator": (
+        "This request was blocked by the SQL safety validator, so no query was run against the "
+        "database. Only read-only SELECT queries over the approved analytics tables are permitted.",
+        Confidence.HIGH,
+    ),
+    "no_query_generated": (
+        "No SQL query could be generated for this question, so nothing was run against the database.",
+        Confidence.HIGH,
+    ),
+    "generation_failed": (
+        "The SQL generation step was unavailable, so no query was run against the database.",
+        Confidence.LOW,
+    ),
+    "execution_failed": (
+        "The query passed safety validation but failed when run against the database, "
+        "so no result is available.",
+        Confidence.LOW,
+    ),
+}
+
+
+def _sql_branch_limitation(r: SqlExecutionResult) -> str:
+    return f"The database part of this question has no result: {_NO_RESULT[_sql_outcome(r)][0]}"
+
+
+def _no_sql_result_answer(r: SqlExecutionResult) -> SynthesisOutput:
+    """Deterministic, truthful answer for a SQL branch that produced no result (no LLM call)."""
+    text, confidence = _NO_RESULT[_sql_outcome(r)]
+    return SynthesisOutput(
+        answer=text,
+        citations=[],
+        confidence=confidence,
+        limitations=["No data was queried or returned; this reports what the system did, not a database result."],
     )
 
 
@@ -232,7 +298,9 @@ def _persist_log(
                 first_attempt_sql=sql_result.first_attempt_sql if sql_result else None,
                 first_attempt_error=sql_result.first_attempt_error if sql_result else None,
                 sql_rejection_reason=sql_result.rejection_reason if sql_result else None,
-                row_count=sql_result.row_count if sql_result else None,
+                # NULL (not 0) unless the database produced rows, so a rejection or an execution
+                # error is distinguishable in the audit log from a query that returned zero rows.
+                row_count=sql_result.row_count if sql_result and _sql_outcome(sql_result) == "executed" else None,
                 latency_ms=latency_ms,
                 intent_latency_ms=stage_ms.get("intent"),
                 sql_latency_ms=stage_ms.get("sql"),

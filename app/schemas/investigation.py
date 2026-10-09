@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -16,7 +17,19 @@ class Confidence(str, Enum):
     LOW = "low"
 
 
+SqlOutcome = Literal[
+    "executed",  # validated and run; rows (possibly zero) are real database results
+    "blocked_by_validator",  # rejected by validate_sql(); never executed
+    "no_query_generated",  # the model declined to write SQL; nothing validated or run
+    "generation_failed",  # the SQL-generation LLM call itself failed
+    "execution_failed",  # validated, but PostgreSQL returned an error; no rows exist
+]
+
+
 class SqlExecutionResult(BaseModel):
+    # Separates "no result" from "zero rows": only outcome == "executed" means the database
+    # produced rows. Optional so existing callers and clients keep working.
+    outcome: SqlOutcome | None = None
     generated_sql: str | None = None
     executed_sql: str | None = None
     validation_ok: bool
