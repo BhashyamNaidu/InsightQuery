@@ -276,6 +276,7 @@ button { font: inherit; color: inherit; }
 .prov-derived { color: var(--c-derived); }
 .prov-retrieved { color: var(--c-retrieved); }
 .prov-llm { color: var(--c-llm); }
+.prov-system { color: var(--accent); }
 .provenance-legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
 .prov-list { list-style: none; display: grid; gap: 10px; }
 .prov-list li { display: flex; gap: 12px; align-items: baseline; font-size: 0.92rem; color: var(--text-2); }
@@ -402,6 +403,7 @@ button { font: inherit; color: inherit; }
 .kv dt { color: var(--text-3); }
 .kv dd { margin: 0; overflow-wrap: anywhere; }
 .answer { font-size: 1rem; line-height: 1.65; border-left: 3px solid var(--c-llm); padding-left: 16px; margin: 0; }
+.answer.system { border-left-color: var(--accent); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; }
 .chips li { font-size: 0.8rem; border: 1px solid var(--line-strong); padding: 3px 10px; border-radius: 999px; color: var(--text-2); }
 .evidence { border: 1px solid var(--line); border-left: 3px solid var(--c-retrieved); border-radius: 0 10px 10px 0; padding: 12px 14px; background: color-mix(in srgb, var(--c-retrieved) 5%, transparent); }

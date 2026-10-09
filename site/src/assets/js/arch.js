@@ -44,7 +44,7 @@ export const NODES = {
     does: "Parses SQL into a syntax tree and enforces: one SELECT, allow-listed tables and columns, no comments, a function deny-list, an enforced LIMIT.",
     inputs: "Candidate SQL.", outputs: "Accepted (possibly with LIMIT added) or rejected with a specific reason.",
     tech: "sqlglot", fail: "Must never raise: a crash on non-string input was found and fixed. Column checks are table-agnostic (documented).",
-    sec: "A rejection is final — it is logged, never executed, never sent back for rewriting.",
+    sec: "A rejection is final — it is logged, never executed, never sent back for rewriting, and never narrated as an empty result.",
     files: ["app/nlsql/validator.py", "tests/test_sql_validator.py"],
   },
   executor: {
@@ -105,8 +105,8 @@ export const NODES = {
     title: "Evidence-grounded synthesis", sub: "LLM + citation check", role: "LLM, untrusted",
     does: "Explains the SQL rows and retrieved passages, returning a schema-validated JSON answer with citations, confidence and limitations.",
     inputs: "Question, SQL rows, retrieved passages.", outputs: "Answer, citations, confidence, limitations.",
-    tech: "Provider interface (Ollama default, Anthropic optional), Pydantic", fail: "Can narrate wrongly, including after a rejected query. Confidence is self-reported.",
-    sec: "Each citation is compared with the documents actually retrieved; non-matching ones are dropped and noted. This closes a reproduced injection vector, not injection in general.",
+    tech: "Provider interface (Ollama default, Anthropic optional), Pydantic", fail: "Can drift from the evidence or explain it wrongly (seen in recorded runs); its confidence is self-reported. It is never handed a rejected or failed SQL branch as if it were an empty result — but given only documents it can still assert things they do not support (seen in a post-fix hybrid run), so a missing database result is disclosed in the response yet not guaranteed to be reflected in the prose.",
+    sec: "A validator rejection ends the SQL branch: the SQL is not executed, and with no documents the system returns fixed text saying the request was blocked, with no LLM call. In hybrid questions the model sees only the retrieved documents, and the response states that the database part has no result. Each citation is compared with the documents actually retrieved; non-matching ones are dropped and noted. That closes one reproduced injection vector, not injection in general.",
     files: ["app/llm/synthesis.py", "app/llm/client.py", "tests/test_synthesis.py"],
   },
   response: {

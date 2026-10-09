@@ -23,6 +23,7 @@ const HOW = {
   validate: "Before anything touches the database, the SQL is parsed into a syntax tree and checked against explicit rules. A rejection is final: the query is logged and never executed or “repaired”.",
   execute: "Only validated SQL reaches PostgreSQL, and only through a role that can read four tables and nothing else. The rows are computed by the database, not by the model.",
   evidence: "Methodology and caveats come from a small curated document set. The question is embedded locally and compared with stored passages by cosine similarity in pgvector.",
+  system: "No model call was made here. When the SQL safety validator blocks a request and there are no documents to explain, the system returns fixed text stating what happened, instead of asking a model to interpret an empty result. A blocked query is not a query that returned zero rows.",
   synth: "The model is given only the question, the SQL rows and the retrieved passages, and asked to explain them. It may be wrong, so its citations are checked against the passages that were actually retrieved.",
   audit: "Every run is written to a query_log table: the question, route, SQL (including any repaired attempt and the database error), verdict, row count, timings and model. That is what makes a result inspectable afterwards.",
 };
@@ -154,16 +155,18 @@ export function buildStages(ex, meta) {
   if (!s) {
     stages.push(skipped(7, "Evidence-grounded synthesis", "No answer was synthesized for this run."));
   } else {
+    // No "synthesis" latency means the response was written by the system, not by a model.
+    const modelRan = sl.synthesis != null;
     const body = [
-      how(HOW.synth),
-      h("div", {}, h("h4", {}, "Answer ", tag("prov-llm", "LLM-generated")), h("p", { class: "answer" }, s.answer)),
+      how(modelRan ? HOW.synth : HOW.system),
+      h("div", {}, h("h4", {}, "Answer ", modelRan ? tag("prov-llm", "LLM-generated") : tag("prov-system", "System message · no LLM call")), h("p", { class: modelRan ? "answer" : "answer system" }, s.answer)),
       h("dl", { class: "kv" },
-        h("dt", {}, "Confidence"), h("dd", {}, `${s.confidence} (self-reported by the model)`),
+        h("dt", {}, "Confidence"), h("dd", {}, modelRan ? `${s.confidence} (self-reported by the model)` : `${s.confidence} (set by the system: it describes what the system did, not a database result)`),
         h("dt", {}, "Citations kept"), h("dd", {}, s.citations.length ? s.citations.join("; ") : "none")),
     ];
     const rn = ex.reviewer_note;
     if (rn) body.push(h("div", { class: `callout ${rn.tone}` }, h("strong", {}, "Reviewer note (not produced by the system). "), rn.text));
-    stages.push(stage(7, "Evidence-grounded synthesis", s.answer.length > 120 ? s.answer.slice(0, 117) + "…" : s.answer, rn && rn.tone === "bad" ? "bad" : "ok", sl.synthesis, body));
+    stages.push(stage(7, modelRan ? "Evidence-grounded synthesis" : "Response (no model call)", s.answer.length > 120 ? s.answer.slice(0, 117) + "…" : s.answer, rn && rn.tone === "bad" ? "bad" : "ok", sl.synthesis, body));
   }
 
   const total = r.latency_ms;
@@ -181,7 +184,7 @@ export function buildStages(ex, meta) {
         h("span", {}, k), h("span", { class: "bar-track" }, h("span", { class: "bar", style: `display:block;width:${Math.max(2, (v / maxStage) * 100)}%` })), h("span", {}, fmtMs(v))))),
   ];
   if (s && s.limitations && s.limitations.length)
-    auditBody.push(h("div", {}, h("h4", {}, "Limitations returned with the answer ", tag("prov-llm", "LLM-generated")), h("ul", { class: "chips" }, s.limitations.map((t) => h("li", {}, t)))));
+    auditBody.push(h("div", {}, h("h4", {}, "Limitations returned with the answer ", (sl.synthesis != null ? tag("prov-llm", "LLM-generated + system notes") : tag("prov-system", "System message"))), h("ul", { class: "chips" }, s.limitations.map((t) => h("li", {}, t)))));
   stages.push(stage(8, "Audit trail and limitations", `${fmtMs(total)} total · logged as ${r.request_id.slice(0, 8)}…`, "ok", null, auditBody));
 
   return stages;

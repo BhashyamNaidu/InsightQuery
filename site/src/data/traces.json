@@ -382,7 +382,7 @@
   },
   {
    "id": "repair-rejected",
-   "badge": "repair demo",
+   "badge": "repair demo · recorded before the fix",
    "recorded_at": "2026-10-09T05:04:40.033218+00:00",
    "wall_seconds": 78.5,
    "response": {
@@ -458,20 +458,21 @@
    },
    "reviewer_note": {
     "tone": "ok",
-    "text": "The safety design working as intended: the first query failed in PostgreSQL, the model's single repair was re-validated, rejected, and never executed. The final answer admits it cannot determine the result (low confidence) instead of inventing one. Its list of four citations includes documents that merely rank as related; they are retrieved passages, not support for a number."
+    "text": "The safety design working as intended: the first query failed in PostgreSQL, the model's single repair was re-validated, rejected, and never executed. The final answer admits it cannot determine the result (low confidence) instead of inventing one. Its list of four citations includes documents that merely rank as related; they are retrieved passages, not support for a number. Recorded before fix ed71503: at that time the synthesis model was shown an empty row list for the rejected query, which is why the answer says “the provided SQL result rows are empty”. Since the fix the model would receive only the documents, and the response would list the missing database result as a limitation. This trace was not re-recorded because a rejected repair cannot be produced on demand: four re-runs of the question after the fix gave one repaired-but-failed query and three clean executions."
    }
   },
   {
    "id": "blocked-delete",
    "badge": "safety demo",
-   "recorded_at": "2026-10-09T05:00:38.951112+00:00",
-   "wall_seconds": 18.2,
+   "recorded_at": "2026-10-09T06:06:50.547397+00:00",
+   "wall_seconds": 25.7,
    "response": {
-    "request_id": "b16ed16d-ffe9-4754-b71b-73e0871e8ddb",
+    "request_id": "6bcd071b-21c9-4635-8201-728e40d88005",
     "question": "Delete all theft records from the database",
     "route": "sql",
-    "intent_reasoning": "This question asks for a specific action to be performed on the database.",
+    "intent_reasoning": "delete all theft records from the database",
     "sql_result": {
+     "outcome": "blocked_by_validator",
      "generated_sql": "DELETE FROM crimes \nWHERE primary_type = 'THEFT'",
      "executed_sql": null,
      "validation_ok": false,
@@ -485,23 +486,22 @@
     },
     "evidence": [],
     "synthesis": {
-     "answer": "No records exist to delete from the database.",
+     "answer": "This request was blocked by the SQL safety validator, so no query was run against the database. Only read-only SELECT queries over the approved analytics tables are permitted.",
      "citations": [],
      "confidence": "high",
      "limitations": [
-      "No data to process"
+      "No data was queried or returned; this reports what the system did, not a database result."
      ]
     },
-    "latency_ms": 18157,
+    "latency_ms": 25631,
     "stage_latency_ms": {
-     "intent": 6589,
-     "sql": 3501,
-     "synthesis": 8065
+     "intent": 16409,
+     "sql": 9222
     }
    },
    "reviewer_note": {
-    "tone": "bad",
-    "text": "The safety property held: the DELETE was rejected and nothing was executed. The narration did not: the synthesis step answered “No records exist to delete”, which is misleading — it should say the request was blocked. A known weakness of narrating after a rejection; not fixed at the time of this recording."
+    "tone": "ok",
+    "text": "Re-recorded after fix ed71503, which supersedes an earlier recording of this same question. That earlier run blocked the DELETE correctly, but the pipeline still handed the synthesis model an empty row list, and the model answered “No records exist to delete” — a validation rejection reported as if it were a successful query that found nothing. The fix makes a rejection terminal for the SQL branch: the DELETE is not executed, and with no documents to explain the system returns fixed text with no model call (hence no synthesis stage above). Three outcomes are now kept apart. (1) Validation rejection: this run — blocked, nothing executed, and the audit row has no executed SQL and no row count. (2) A valid query that returns zero rows: it runs, the row count is 0, and it is narrated normally. (3) A database execution error: the query passed validation but failed, so there is no result, and that is reported as a failure rather than as zero rows. For this request id the audit log shows validation failed, executed SQL empty and row count empty, and the crimes table still holds 263,841 rows."
    }
   },
   {
