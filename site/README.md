@@ -50,8 +50,8 @@ every push to `master` that touches `site/` or the evaluation outputs. Pages mus
 
 ## Contact links
 
-`config.json` has empty `contact.email` / `contact.linkedin` fields. They are not shown until
-filled in, so no placeholder or broken link is ever rendered.
+`config.json` holds `contact.email` / `contact.linkedin`; both are rendered as footer links at runtime. If a
+field is emptied it is simply not shown, so no placeholder or broken link is ever rendered.
 
 ## Fonts
 
